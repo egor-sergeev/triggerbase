@@ -38,6 +38,8 @@ MCP checks create disposable host profiles and use a local test tool. The sessio
 | Install both host plugins from the marketplace | Codex CLI 0.170.0 and Claude Code 2.1.329, isolated profiles |
 | Call MCP without a model turn | Both real host CLIs called the fixture tool. Claude enforced its tool permission |
 | Local Codex execution | Two real jobs reused one session and recalled a random marker. Codex Desktop also read the sample job and its completed reply by ID |
+| Computer Use from a launchd Codex job | The native tool was present. Finder, TextEdit and QuickTime window reads returned `cgWindowNotFound` on the release Mac. Window access requires another test in an active GUI session. |
+| Verified release installation | Downloaded the published archive, verified its GitHub attestation and SHA-256 checksum, and installed its packaged plugin in both host CLIs. |
 | Claude account selection | The runner rejects the configured API-key helper before executing a model turn. Live subscription and Desktop delivery require a signed-in subscription test |
 | Vendor accounts and offline production delivery | Provider fixtures and a real local Worker runtime are covered. Live staging and private SaaS destinations require operator credentials |
 

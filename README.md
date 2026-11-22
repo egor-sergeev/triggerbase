@@ -2,7 +2,7 @@
 
 Run your **local coding agent** when a customer replies, a meeting transcript arrives, a pull request merges, or a scheduled script finds work. Deliver the prompt to a new chat, one persistent chat, or the chat for a particular conversation. A public HTTPS receiver can hold webhooks while your Mac sleeps.
 
-**Preview release.** The local runner, journal and Cloudflare receiver are included. Codex has completed a live local job. Both hosts passed direct MCP calls against a test server. Claude Desktop session delivery and unattended access to individual SaaS accounts still need live verification. The hosted receiver needs operator provisioning. Local cron works immediately.
+**Preview release.** The local runner, journal and Cloudflare receiver are included. Codex has completed a live local job. Both hosts passed direct MCP calls against a test server. Claude Desktop session delivery and unattended access to individual SaaS accounts still need live verification. Native Computer Use could not read a window in the latest background test. The hosted receiver needs operator provisioning. Local cron works immediately.
 
 ## Install by asking your agent
 
@@ -10,7 +10,7 @@ On macOS with Node.js 24.10+ and the GitHub CLI, paste this into **Codex or Clau
 
 > Install Triggerbase from egor-sergeev/triggerbase for the agent I am using. Follow the verified preview installation in its README. Start the local runner, run the installation sample, wait for completion, and open the journal and the resulting chat. Tell me if my current agent account or permissions prevent completion.
 
-The following commands install the verified release into your user account. Use the same preview tag for the archive and installation. For development before a release is available, use the source installation below.
+The following commands install the verified release into your user account. Use the same preview tag for the archive and installation. For a source installation, use the [development guide](docs/development.md).
 
 ```sh
 repo=egor-sergeev/triggerbase
