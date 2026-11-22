@@ -9,8 +9,26 @@ Register files with `triggerbase paths add PATH` and unregister them with `trigg
 | `cron` or `webhook` | Exactly one source. Five-field cron uses local time, optionally overridden by an IANA `timezone`. A webhook name matches the name registered at the receiver. Direct webhook templates read the verified JSON object. |
 | `check` | Optional executable and argument array. Working directory is the rule file's directory. On a timer with no check, the event contains `time`. |
 | `run.agent` | `codex` or `claude`. Set `cwd` and `prompt`. Relative directories resolve against the rule file. |
+| `run.worktree` | Required boolean for agent rules. Use `false` for the configured directory. Use `true` to start new chats in a host-managed Git worktree. Command rules omit this field. |
 | `run.chat` | `new` (default), `shared`, `{key: "{{conversation_id}}"}` or `{id: "<session UUID>"}`. A keyed chat is scoped to its rule and host. |
 | `run.command` | An executable and argument array, with optional `cwd`. Receives the event data on stdin. |
+
+## Agent working directory
+
+Set `worktree` under `run` alongside `agent` and `cwd`:
+
+```yaml
+run:
+  agent: codex
+  cwd: ~/projects/shop/packages/api
+  worktree: true
+  chat: shared
+  prompt: "Review recent changes in packages/api."
+```
+
+With `true`, Git discovers the enclosing checkout from `cwd`, including linked worktrees and submodules. The selected host starts at the root of the **new** checkout. Name the subdirectory in the prompt when the task targets one package. In an existing folder outside Git, with Git unavailable, or before the first commit, the job runs in its configured directory and records the reason in job history. An error creating a worktree in a usable repository fails the job. Triggerbase never retries that task in the source checkout.
+
+`chat: new` gets a worktree per new chat. Shared and keyed chats keep their original workspace on later deliveries, including after a runner restart. An explicit session ID resumes an existing chat. Changing the flag affects new chats. Worktree creation requires a host CLI that supports `--worktree`. The host owns its worktrees.
 
 ## Script protocol
 

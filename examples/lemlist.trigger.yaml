@@ -3,6 +3,7 @@ enabled: false
 cron: "*/5 * * * *"
 check: [node, ./lemlist.ts]
 run:
+  worktree: false
   agent: codex
   cwd: ~/projects/sales
   chat: { key: "{{conversation}}" }

@@ -1,3 +1,6 @@
+import { realpathSync } from "node:fs";
+import { isAbsolute } from "node:path";
+import { verifyLinkedCheckout, worktreeSource } from "./worktree.js";
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import { randomUUID } from "node:crypto";
@@ -195,8 +198,48 @@ export async function dispatch(db: Store, job: Job) {
     p.existing ||
     (db.db.prepare("SELECT id FROM sessions WHERE k=?").get(p.key!)?.id as
       string | undefined);
+  let cwd = p.cwd;
+  let createWorktree = false;
+  // Claude re-enters from the source checkout. Codex exec resume takes its
+  // effective cwd from the calling process, even for managed worktrees.
+  type Binding = { cwd: string; discoverCodexCwd?: boolean };
+  const bindingKey = (id: string) => "workspace/" + p.agent + "/" + id;
+  const binding = session
+    ? db.get<Binding | null>(bindingKey(session), null)
+    : null;
+  if (session) {
+    cwd = binding?.cwd || cwd;
+    if (
+      p.agent === "codex" &&
+      (binding?.discoverCodexCwd || (!binding && p.worktree))
+    ) {
+      const { thread } = await codexRpc(cwd, (call) =>
+        call("thread/read", { threadId: session, includeTurns: false }),
+      );
+      if (typeof thread.cwd !== "string" || !isAbsolute(thread.cwd))
+        throw Error("Codex did not report the session working directory");
+      const savedCwd = realpathSync(thread.cwd);
+      if (binding?.discoverCodexCwd)
+        await verifyLinkedCheckout(binding.cwd, savedCwd);
+      cwd = savedCwd;
+      db.set(bindingKey(session), { cwd });
+    }
+  } else if (p.worktree) {
+    const source = await worktreeSource(cwd);
+    cwd = source.cwd;
+    createWorktree = !source.reason;
+    if (source.reason)
+      db.db
+        .prepare("INSERT INTO history(job,state) VALUES(?,?)")
+        .run(job.id, "Using configured directory: " + source.reason);
+  }
   const save = (id: string) => {
     db.transaction(() => {
+      if (!session && p.worktree)
+        db.set(bindingKey(id), {
+          cwd,
+          discoverCodexCwd: createWorktree && p.agent === "codex",
+        });
       db.db
         .prepare("INSERT OR REPLACE INTO sessions VALUES(?,?)")
         .run(p.key!, id);
@@ -207,7 +250,7 @@ export async function dispatch(db: Store, job: Job) {
   if (session) save(session);
   if (p.agent === "claude") {
     const auth = JSON.parse(
-      (await execute(["claude", "auth", "status", "--json"], p.cwd, "")).stdout,
+      (await execute(["claude", "auth", "status", "--json"], cwd, "")).stdout,
     );
     if (!auth.loggedIn || auth.authMethod !== "claude.ai")
       throw Error(
@@ -216,10 +259,11 @@ export async function dispatch(db: Store, job: Job) {
     const args = session
       ? ["--resume", session]
       : ["--session-id", randomUUID()];
+    if (createWorktree) args.push("--worktree", "tb-" + args[1]);
     let done = false;
     await execute(
       ["claude", "-p", "--verbose", "--output-format", "stream-json", ...args],
-      p.cwd,
+      cwd,
       p.prompt!,
       1800_000,
       (s) => {
@@ -238,17 +282,21 @@ export async function dispatch(db: Store, job: Job) {
     db.mark(job.id, "completed");
     return;
   }
-  const auth = await execute(["codex", "login", "status"], p.cwd, "");
+  const auth = await execute(["codex", "login", "status"], cwd, "");
   if (!/using ChatGPT/i.test(auth.stdout + auth.stderr))
     throw Error("Sign in to Codex using ChatGPT before running this rule");
   let completed = false,
     alreadyStarted = false,
     hostError = "";
   try {
-    const args = session ? ["resume", session] : [];
+    const args = session
+      ? ["resume", session]
+      : createWorktree
+        ? ["--worktree"]
+        : [];
     await execute(
       ["codex", "exec", ...args, "--skip-git-repo-check", "--json", "-"],
-      p.cwd,
+      cwd,
       p.prompt!,
       1800_000,
       (s) => {
@@ -284,7 +332,7 @@ export async function dispatch(db: Store, job: Job) {
         "[Triggerbase job " + job.id + "]\n" + p.prompt!,
         "--resume",
       ],
-      p.cwd,
+      cwd,
       "",
     );
     db.mark(job.id, "delivered");

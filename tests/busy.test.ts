@@ -50,6 +50,7 @@ test("busy native chat: queue acknowledgement, observed host start, completion, 
       id: "busy",
       webhook: "busy",
       run: {
+        worktree: false,
         agent: "codex",
         cwd: dir,
         chat: { id: thread },

@@ -59,6 +59,7 @@ try {
         id: "smoke",
         webhook: "sample",
         run: {
+          worktree: false,
           agent: host,
           cwd: process.cwd(),
           chat: "shared",

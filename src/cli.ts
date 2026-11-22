@@ -142,7 +142,7 @@ async function main() {
           agent +
           "\n  cwd: " +
           JSON.stringify(process.cwd()) +
-          '\n  chat: shared\n  prompt: "Reply with the words: Triggerbase is connected. No tools needed."\n';
+          '\n  worktree: false\n  chat: shared\n  prompt: "Reply with the words: Triggerbase is connected. No tools needed."\n';
         if (!existsSync(file)) writeFileSync(file, yaml, { flag: "wx" });
         const rule = readRule(file);
         if (!rule.enabled || rule.id !== id)

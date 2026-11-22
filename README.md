@@ -33,6 +33,7 @@ For your first public webhook, ask the agent to connect the sender. It pairs you
 ## Where rules, data and results live
 
 - **Rules** are individual YAML files in `~/.config/triggerbase/rules/`. Ask the agent to register another file or directory to keep project-specific rules in a repository. Edits take effect automatically. Set `enabled: false` to pause a rule.
+- **Agent workspaces** are chosen per rule with `run.worktree: true` or `false`. A new chat can get a separate Git checkout. Triggerbase finds the repository from a nested folder and runs in place when the folder has no repository or commits. [Workspace behavior](docs/rules.md#agent-working-directory)
 - **Inputs** can supply prompt variables such as `{{title}}`. A check script can call an MCP tool through the host’s existing connection. Unattended checks need permission to use that tool. A rule can also run a local command directly. [Fields, scripts and chat routing](docs/rules.md)
 - **Results** appear in the selected agent chat. Ask “Open the Triggerbase journal” to see what ran, when it ran and any error. To diagnose a missed task, ask “Why didn’t my weekly report run?”
 - **Sleep and reboot.** Webhooks stay queued for up to 30 days. After wake or reconnect, the runner retrieves them. Each enabled cron rule gets one catch-up check after missed ticks. After reboot the runner starts when you log in.

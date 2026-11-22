@@ -3,6 +3,7 @@ enabled: false
 webhook: circleback
 check: [node, ./meeting.ts]
 run:
+  worktree: false
   agent: claude
   cwd: ~/projects/meetings
   chat: { key: "{{id}}" }

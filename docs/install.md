@@ -18,6 +18,8 @@ The installer selects a pinned official Node.js runtime for the Mac, checks its 
 
 ## Update or remove
 
+**Updating from 1.x.** Add an explicit `worktree: false` under `run` in each existing agent rule to keep its current behavior, or choose `true` for new chats in separate Git worktrees. Include disabled rules and registered custom paths. Command rules keep their existing format. The new runner reports a missing choice in the Rules journal. Existing queued jobs retain the policy recorded at enqueue time (in-place for 1.x snapshots).
+
 Refresh the GitHub marketplace in the current host (`codex plugin marketplace upgrade triggerbase` or `claude plugin marketplace update triggerbase`). Apply the new plugin version with `codex plugin add triggerbase@triggerbase --json` or `claude plugin update triggerbase@triggerbase`. Run setup from that installed version and check readiness. Each host shares the same runner. If a job is active, setup waits up to a minute, then asks you to retry after the job completes.
 
 **Migrating alpha.1 or alpha.2.** Those versions registered a local archive directory as the marketplace. If the host reports a source conflict, inspect the registered source. For the legacy Triggerbase path under `~/.local/share/triggerbase/v*/`, remove that marketplace from the current host, then follow the GitHub installation above. Both versions use the same local state and Keychain pairing. Leave unrelated marketplaces alone.

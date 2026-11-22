@@ -3,6 +3,7 @@ enabled: false
 cron: "*/15 * * * *"
 check: [node, ./attio.ts]
 run:
+  worktree: false
   agent: codex
   cwd: ~/projects/sales
   chat: shared

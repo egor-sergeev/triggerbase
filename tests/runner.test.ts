@@ -75,7 +75,13 @@ test("chat selection is independent from event deduplication", () => {
       stringify({
         id: "sales",
         webhook: "sales",
-        run: { agent: "codex", cwd: root, chat, prompt: "Draft: {{text}}" },
+        run: {
+          worktree: false,
+          agent: "codex",
+          cwd: root,
+          chat,
+          prompt: "Draft: {{text}}",
+        },
       }),
     );
     const rule = readRule(file),

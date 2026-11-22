@@ -15,6 +15,7 @@ const chat = z.union([
 const run = z.union([
   z.strictObject({
     agent: z.enum(["codex", "claude"]),
+    worktree: z.boolean({ error: "Set run.worktree to true or false" }),
     cwd: z.string().min(1),
     chat: chat.default("new"),
     prompt: z.string().min(1),
@@ -120,6 +121,7 @@ export function plan(rule: Rule, event: Event) {
   return {
     cwd,
     agent: rule.run.agent,
+    worktree: rule.run.worktree === true,
     key: JSON.stringify([rule.run.agent, ...key]),
     existing: typeof mode === "object" && "id" in mode ? mode.id : undefined,
     prompt: render(rule.run.prompt, event.data),
