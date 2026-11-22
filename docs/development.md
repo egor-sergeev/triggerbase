@@ -12,6 +12,8 @@ pnpm test:e2e
 pnpm bundle
 ```
 
+Run `pnpm package:plugin` after changing runner code. Commit the compressed runner inside the plugin. CI rebuilds and compares the decompressed bytes. The shell bootstrap verifies the Node.js distribution against the pinned architecture-specific checksums, then hands setup to TypeScript.
+
 For a source installation, add the repository's `dist/cli.js` to your PATH as `triggerbase`, register the checkout as a plugin marketplace and install `triggerbase@triggerbase` in your host. Run `triggerbase service install` from that installation. Keep the checkout in place so launchd can find it. The shell PATH recorded at installation must include the interpreter and host binaries used by your rules.
 
 ## Automated coverage
@@ -19,6 +21,8 @@ For a source installation, add the repository's `dist/cli.js` to your PATH as `t
 Vitest exercises real subprocesses, temporary SQLite stores, dynamically edited rule directories, cron catch-up and cursor commits. The relay suite runs actual Worker and Durable Object code under Miniflare. GitHub OAuth and SaaS calls use test servers or fixtures. An offline test loses an acknowledgment, restarts the local store and checks the resulting command's external output. Provider scenarios run the distributed example scripts and assert jobs, destinations, duplicates and Slack messages. A fixture agent can validate delivery and context selection; it cannot validate a SaaS vendor's account-specific schema or the reasoning of a model.
 
 Playwright starts the compiled daemon with an empty state directory. It checks journal authentication, empty jobs, a completed cron command, job history, a broken rule and narrow-screen layout. Use `TRIGGERBASE_CHROME=chrome pnpm test:e2e` for installed Google Chrome. Images go to `test-results/`.
+
+Run `node scripts/onboarding-smoke.ts` on macOS to exercise the installed plugin bootstrap with only system tools on PATH. Supply two installed plugin directories to test Codex and Claude against the same state directory. CI runs it on Intel and Apple silicon. It checks a rejected checksum, parallel installs, a due weekly cron, an upgrade with active work and recovery from a broken candidate.
 
 The native service smoke test runs the bundled artifact in a disposable state directory with its own LaunchAgent label. Run `pnpm bundle && node scripts/service-smoke.ts` to verify installation and upgrades, bootstrap from the login plist, cron catch-up, suspension and resumption of the runner, and restart after a forced process exit. The test leaves the Mac awake and removes its temporary LaunchAgent.
 

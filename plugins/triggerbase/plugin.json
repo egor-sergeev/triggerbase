@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "triggerbase",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "description": "Run local agent jobs from webhooks and cron. Manage rules and open the job journal.",
   "author": {
     "name": "Triggerbase contributors"

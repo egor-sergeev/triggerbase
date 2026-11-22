@@ -21,7 +21,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check && pnpm test
       - run: pnpm exec playwright install --with-deps chromium && pnpm test:e2e
-      - run: pnpm bundle && node release/cli.js --help
+      - run: pnpm bundle && node scripts/package-plugin.ts --check && node release/cli.js --help
       - name: Package the runner and plugin sources
         run: |
           tar -czf triggerbase.tgz -C release cli.js -C "$GITHUB_WORKSPACE" LICENSE README.md plugins .agents/plugins .claude-plugin examples

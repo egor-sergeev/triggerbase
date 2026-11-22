@@ -90,7 +90,7 @@ async function main() {
         await daemon(store);
         break;
       case "service":
-        await service(args[0]);
+        await service(args[0], store);
         break;
       case "paths": {
         if (args.length) {

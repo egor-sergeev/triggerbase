@@ -69,7 +69,7 @@ export async function codexRpc<T>(
       clientInfo: {
         name: "triggerbase",
         title: "Triggerbase",
-        version: "0.1.0-alpha.2",
+        version: "0.1.0-alpha.3",
       },
       capabilities: { experimentalApi: true },
     });
