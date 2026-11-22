@@ -65,6 +65,7 @@ try {
       writeFileSync(
         join(state, "rules", id + ".trigger.yaml"),
         JSON.stringify({
+          schemaVersion: 2,
           id,
           ...source,
           run: { command: [process.execPath, "-e", "process.stdin.resume()"] },

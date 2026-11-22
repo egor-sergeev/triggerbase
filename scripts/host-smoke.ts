@@ -56,6 +56,7 @@ try {
     writeFileSync(
       file,
       JSON.stringify({
+        schemaVersion: 2,
         id: "smoke",
         webhook: "sample",
         run: {

@@ -4,7 +4,7 @@ Register files with `triggerbase paths add PATH` and unregister them with `trigg
 
 | Field | Meaning |
 |---|---|
-| `schemaVersion` | Set to `2` for new rules. Older files can omit it. |
+| `schemaVersion` | Required. The runner accepts revision `2`. |
 | `id` | Stable unique rule ID, up to 80 lowercase letters, digits, dots, underscores or hyphens. Start with a letter or digit. |
 | `enabled` | Defaults to true. False holds queued work and prevents new agent launches. Setting it true resumes eligible queued work. A running process may finish. |
 | `cron` or `webhook` | Exactly one source. Five-field cron uses local time, optionally overridden by an IANA `timezone`. A webhook name matches the name registered at the receiver. Direct webhook templates read the verified JSON object. |
@@ -16,20 +16,22 @@ Register files with `triggerbase paths add PATH` and unregister them with `trigg
 
 ## Rule schema versions
 
-The runner upgrades each rule in memory when it reads the file. An absent `schemaVersion` means revision 1. A revision 1 agent rule with no worktree setting runs in its configured directory. Explicit worktree choices carry over, and command rules keep their arguments. The original YAML, including comments, stays on disk. Queued jobs use the rule saved when the event arrived.
+During installation or update, plugin setup writes the current schema to each older rule in the default directory and registered paths. Setup treats an absent `schemaVersion` as revision 1. It adds `schemaVersion: 2` and sets a missing agent `run.worktree` to `false`. Explicit choices and YAML comments carry over. Setup also upgrades queued jobs using their saved settings.
 
-For example, this rule from Triggerbase 1.0 still runs in place:
+For example, setup adds the two marked fields to this existing rule:
 
 ```yaml
+schemaVersion: 2             # Added by setup
 id: daily-review
 cron: "0 9 * * 1-5"
 run:
   agent: codex
   cwd: ~/projects/shop
+  worktree: false            # Added by setup
   prompt: "Summarize yesterday's changes."
 ```
 
-When writing its equivalent today, add `schemaVersion: 2` at the top and `worktree: false` under `run`. A newer, unsupported schema appears as an error in the journal and in `triggerbase rules`. Update the plugin to load that rule. Other valid rules continue running.
+The runner loads only current-format rules. If you register an older file after updating, rerun plugin setup. Repeated setup leaves current files untouched.
 
 ## Agent working directory
 

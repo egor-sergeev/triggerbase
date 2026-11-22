@@ -14,6 +14,7 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { execute } from "./process.js";
 import { home } from "./rules.js";
+import { migrateInstalledRules } from "./rule-migrations.js";
 import type { Store } from "./store.js";
 
 const suffix = process.env.TRIGGERBASE_HOME
@@ -103,6 +104,7 @@ export async function service(cmd: string, store: Store) {
   );
   if (loaded && previous === contents) {
     await waitForJournal();
+    migrateInstalledRules(store);
     return;
   }
   const previousUrl = existsSync(journalFile)
@@ -153,20 +155,26 @@ export async function service(cmd: string, store: Store) {
     }
   }
   let started = false;
+  let restoreRules: (() => void) | undefined;
   try {
+    restoreRules = migrateInstalledRules(store);
     writePlist(contents);
     await bootstrap();
     started = true;
     await waitForJournal(previousUrl);
   } catch (error) {
     if (started) await bootout();
-    if (previous) {
-      writePlist(previous);
-      if (loaded) {
-        await bootstrap();
-        await waitForJournal(previousUrl);
-      }
-    } else if (existsSync(plist)) unlinkSync(plist);
+    try {
+      restoreRules?.();
+    } finally {
+      if (previous) {
+        writePlist(previous);
+        if (loaded) {
+          await bootstrap();
+          await waitForJournal(previousUrl);
+        }
+      } else if (existsSync(plist)) unlinkSync(plist);
+    }
     throw error;
   }
 }

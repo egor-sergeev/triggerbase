@@ -22,7 +22,7 @@ Vitest exercises real subprocesses, temporary SQLite stores, dynamically edited 
 
 Playwright starts the compiled daemon with an empty state directory. It checks journal authentication, empty jobs, a completed cron command, job history, a broken rule and narrow-screen layout. Use `TRIGGERBASE_CHROME=chrome pnpm test:e2e` for installed Google Chrome. Images go to `test-results/`.
 
-Run `node scripts/onboarding-smoke.ts` on macOS to exercise the installed plugin bootstrap with only system tools on PATH. Supply two installed plugin directories to test Codex and Claude against the same state directory. CI runs it on Intel and Apple silicon. It checks a rejected checksum, parallel installs, a due weekly cron, read-only legacy rules in a registered directory, an upgrade with active work and recovery from a broken candidate.
+Run `node scripts/onboarding-smoke.ts` on macOS to exercise the installed plugin bootstrap with only system tools on PATH. Supply two installed plugin directories to test Codex and Claude against the same state directory. CI runs it on Intel and Apple silicon. It checks a rejected checksum, parallel installs, a due weekly cron, on-disk migration in a registered directory and recovery after a read-only file blocks setup, an upgrade with active work and recovery from a broken candidate.
 
 The native service smoke test runs the bundled artifact in a disposable state directory with its own LaunchAgent label. Run `pnpm bundle && node scripts/service-smoke.ts` to verify installation and upgrades, bootstrap from the login plist, cron catch-up, suspension and resumption of the runner, and restart after a forced process exit. The test leaves the Mac awake and removes its temporary LaunchAgent.
 

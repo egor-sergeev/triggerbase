@@ -3,7 +3,7 @@ name: triggerbase
 description: Create, test, enable and disable local webhook and cron rules for Codex or Claude Code, inspect Triggerbase jobs and open the journal.
 ---
 
-On update, refresh each installed host plugin and run setup for the shared runner. The runner migrates existing rules in memory. Leave their files in place and verify discovery with `triggerbase rules`.
+On update, refresh each installed host plugin and run setup for the shared runner. Setup migrates rule files on disk. If setup reports a read-only file, report its path and ask the user how to handle it. Verify discovery with `triggerbase rules`.
 
 On install, update, or first use from a manually installed plugin, run `/bin/sh "<installed plugin root>/setup.sh"`. The plugin root is two directories above this skill directory. Wait for the readiness message. Use `~/.local/bin/triggerbase` if the command is outside PATH. If setup was the whole request, report readiness and ask what the user wants to automate. Skip demo jobs and relay pairing. For an uninstall or stop request, use the existing CLI directly.
 

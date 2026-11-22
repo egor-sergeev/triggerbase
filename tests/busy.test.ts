@@ -47,6 +47,7 @@ test("busy native chat: queue acknowledgement, observed host start, completion, 
   writeFileSync(
     file,
     JSON.stringify({
+      schemaVersion: 2,
       id: "busy",
       webhook: "busy",
       run: {

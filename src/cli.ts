@@ -5,8 +5,14 @@ import { DatabaseSync } from "node:sqlite";
 import { setTimeout as sleep } from "node:timers/promises";
 import { Store } from "./store.js";
 import { Runner } from "./runner.js";
-import { home, absolute, eventSchema, plan, readRule } from "./rules.js";
-import { currentRuleSchema } from "./rule-migrations.js";
+import {
+  home,
+  absolute,
+  eventSchema,
+  plan,
+  readRule,
+  currentRuleSchema,
+} from "./rules.js";
 import pkg from "../package.json" with { type: "json" };
 import { execute } from "./process.js";
 import { mcp } from "./hosts.js";

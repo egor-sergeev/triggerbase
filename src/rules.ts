@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { parse } from "yaml";
 import { z } from "zod";
 import { Cron } from "croner";
-import { currentRuleSchema, migrateRule } from "./rule-migrations.js";
+export const currentRuleSchema = 2;
 
 const command = z.array(z.string().min(1)).min(1);
 const chat = z.union([
@@ -24,7 +24,9 @@ const run = z.union([
   z.strictObject({ command, cwd: z.string().optional() }),
 ]);
 const schema = z.strictObject({
-  schemaVersion: z.literal(currentRuleSchema),
+  schemaVersion: z.literal(currentRuleSchema, {
+    error: `Expected schemaVersion: ${currentRuleSchema}. Run plugin setup to migrate older rules.`,
+  }),
   id: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,79}$/),
   enabled: z.boolean().default(true),
   cron: z.string().optional(),
@@ -39,7 +41,7 @@ const schema = z.strictObject({
 const snapshotSchema = schema.extend({ path: z.string(), version: z.string() });
 export type Rule = z.infer<typeof snapshotSchema>;
 export function readRuleSnapshot(json: string): Rule {
-  return snapshotSchema.parse(migrateRule(JSON.parse(json)));
+  return snapshotSchema.parse(JSON.parse(json));
 }
 export const home =
   process.env.TRIGGERBASE_HOME || join(homedir(), ".config", "triggerbase");
@@ -47,7 +49,15 @@ export const absolute = (p: string, base = process.cwd()) =>
   resolve(base, p.startsWith("~/") ? join(homedir(), p.slice(2)) : p);
 export function readRule(path: string): Rule {
   const raw = readFileSync(path, "utf8");
-  const r = schema.parse(migrateRule(parse(raw)));
+  const r = validateRule(parse(raw));
+  return {
+    ...r,
+    path: realpathSync(path),
+    version: createHash("sha256").update(raw).digest("hex"),
+  };
+}
+export function validateRule(input: unknown) {
+  const r = schema.parse(input);
   if (Boolean(r.cron) === Boolean(r.webhook))
     throw Error("Choose one source: cron or webhook");
   if (r.cron) {
@@ -55,17 +65,11 @@ export function readRule(path: string): Rule {
       throw Error("Use a five-field cron expression");
     new Cron(r.cron, { timezone: r.timezone }).nextRun();
   }
-  return {
-    ...r,
-    path: realpathSync(path),
-    version: createHash("sha256").update(raw).digest("hex"),
-  };
+  return r;
 }
-export function scan(roots: string[]) {
+export function rulePaths(roots: string[]) {
   const paths = new Set<string>(),
-    rules = new Map<string, Rule>(),
-    errors: Record<string, string> = {},
-    conflicts = new Set<string>();
+    errors: Record<string, string> = {};
   for (const root of roots) {
     try {
       if (statSync(root).isDirectory()) {
@@ -77,6 +81,12 @@ export function scan(roots: string[]) {
       errors[root] = String(e);
     }
   }
+  return { paths, errors };
+}
+export function scan(roots: string[]) {
+  const { paths, errors } = rulePaths(roots);
+  const rules = new Map<string, Rule>(),
+    conflicts = new Set<string>();
   for (const path of paths)
     try {
       const rule = readRule(path),

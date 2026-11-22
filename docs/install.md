@@ -18,7 +18,7 @@ The installer selects a pinned official Node.js runtime for the Mac, checks its 
 
 ## Update or remove
 
-**Existing rules migrate automatically.** Update the plugin and run setup. The runner reads older rules from the default directory and registered paths, including read-only files. Agent rules that predate worktrees keep running in their configured directory. Existing worktree choices, queued jobs and chat bindings carry over. Run `triggerbase rules` to inspect the effective configuration and any errors. [Rule schema versions](rules.md#rule-schema-versions)
+**Existing rules migrate automatically.** Update the plugin and run setup. Setup writes the current schema to older rule files in the default directory and registered paths. If a file needs migration and is read-only, setup reports its path. Give it write access or unregister it, then retry setup. Agent rules that predate worktrees keep running in their configured directory. Existing worktree choices, queued jobs and chat bindings carry over. Run `triggerbase rules` to inspect the effective configuration and any errors. [Rule schema versions](rules.md#rule-schema-versions)
 
 **Updating from the historical 2.0.0 release.** Worktree support was renumbered to 1.1.0. Use the usual update procedure below. The installer recognizes the transition and reuses your rules, job history and device pairing.
 

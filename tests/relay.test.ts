@@ -150,6 +150,7 @@ test("offline receiver → durable local inbox → interrupted ACK → restart �
   writeFileSync(
     join(dir, "rules", "meet.trigger.yaml"),
     JSON.stringify({
+      schemaVersion: 2,
       id: "meet",
       webhook: "meetings",
       run: {

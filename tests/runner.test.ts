@@ -12,6 +12,7 @@ const db = new Store(),
   runner = new Runner(db),
   dir = join(root, "rules");
 const source = {
+  schemaVersion: 2,
   id: "deadline",
   cron: "*/15 * * * *",
   check: ["node", "./check.mjs"],
@@ -73,6 +74,7 @@ test("chat selection is independent from event deduplication", () => {
     writeFileSync(
       file,
       stringify({
+        schemaVersion: 2,
         id: "sales",
         webhook: "sales",
         run: {
@@ -96,6 +98,7 @@ test("local durable inbox survives a restart and re-delivery", async () => {
   writeFileSync(
     file,
     stringify({
+      schemaVersion: 2,
       id: "inbox",
       webhook: "circleback",
       run: { command: ["true"] },

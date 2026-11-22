@@ -4,6 +4,7 @@ import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
 import {
   existsSync,
+  chmodSync,
   mkdtempSync,
   mkdirSync,
   cpSync,
@@ -62,6 +63,7 @@ try {
     // Run the weekly rule with a due check and a local command to keep CI model-free.
     const rule = join(state, "rules", "weekly-report.trigger.yaml");
     const spec = {
+      schemaVersion: 2,
       id: "weekly-report",
       cron: "0 16 * * 5",
       timezone: "UTC",
@@ -110,11 +112,13 @@ try {
       "utf8",
     );
     writeFileSync(legacy, originalRule, { mode: 0o444 });
-    writeFileSync(
-      join(custom, "future.trigger.yaml"),
-      "schemaVersion: 999\nid: future\n",
-    );
     cli("paths", "add", custom);
+    await assert.rejects(
+      setup(source),
+      /Cannot migrate .*meeting.trigger.yaml/,
+    );
+    assert.equal(readFileSync(legacy, "utf8"), originalRule);
+    chmodSync(legacy, 0o640);
     await setup(source);
     const catalog = JSON.parse(cli("rules"));
     assert.deepEqual(
@@ -126,10 +130,7 @@ try {
     );
     assert.equal(meeting.enabled, false);
     assert.equal(meeting.run.worktree, false);
-    assert.match(
-      String(Object.values(catalog.errors)),
-      /schemaVersion 999 requires a newer Triggerbase/,
-    );
+    assert.deepEqual(catalog.errors, {});
     const event = join(custom, "preview.json");
     writeFileSync(
       event,
@@ -141,7 +142,11 @@ try {
     const preview = JSON.parse(cli("preview", legacy, event));
     assert.equal(preview.worktree, false);
     assert.match(preview.prompt, /test transcript/);
-    assert.equal(readFileSync(legacy, "utf8"), originalRule);
+    const migrated = readFileSync(legacy, "utf8");
+    assert.match(migrated, /schemaVersion: 2/);
+    assert.match(migrated, /worktree: false/);
+    await setup(source);
+    assert.equal(readFileSync(legacy, "utf8"), migrated);
     assert.equal(JSON.parse(cli("jobs")).length, 1);
     const beforeUpgrade = pid();
     changeVersion("9998.0.0");
@@ -171,7 +176,9 @@ try {
           ),
       ),
     );
+    writeFileSync(legacy, originalRule);
     await assert.rejects(setup(fixture), /did not start the local journal/);
+    assert.equal(readFileSync(legacy, "utf8"), originalRule);
     assert.equal(readlinkSync(launcher), working);
     assert.ok(pid());
     assert.equal(JSON.parse(cli("jobs")).length, 2);

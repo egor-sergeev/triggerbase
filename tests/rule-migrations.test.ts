@@ -1,66 +1,77 @@
-import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { expect, test } from "vitest";
-import { currentRuleSchema, migrateRule } from "../src/rule-migrations.js";
-import { readRule, readRuleSnapshot } from "../src/rules.js";
-import { fileURLToPath } from "node:url";
+import { afterAll, expect, test } from "vitest";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  statSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-const fixture = fileURLToPath(
-  new URL("./fixtures/circleback-v1.0.0.trigger.yaml", import.meta.url),
-);
-test("the shipped 1.0.0 rule preserves its source hash, disabled state and keyed chat", () => {
-  const rule = readRule(fixture);
-  expect(rule).toMatchObject({
-    schemaVersion: currentRuleSchema,
-    enabled: false,
+const home = realpathSync(mkdtempSync(join(tmpdir(), "tb-migrations-")));
+process.env.TRIGGERBASE_HOME = home;
+const { Store } = await import("../src/store.js");
+const { migrateInstalledRules } = await import("../src/rule-migrations.js");
+const { readRule } = await import("../src/rules.js");
+const store = new Store();
+const custom = join(home, "repo");
+mkdirSync(custom);
+const file = join(custom, "meeting.trigger.yaml");
+store.set("paths", [custom, file]);
+const original =
+  "# Meeting automation\n" +
+  readFileSync(
+    new URL("./fixtures/circleback-v1.0.0.trigger.yaml", import.meta.url),
+    "utf8",
+  );
+afterAll(() => {
+  store.close();
+  rmSync(home, { recursive: true, force: true });
+});
+
+test("setup migrates an actual 1.0 file once, preserving comments, mode and behavior", () => {
+  writeFileSync(file, original, { mode: 0o640 });
+  expect(() => readRule(file)).toThrow(/schemaVersion/);
+  migrateInstalledRules(store);
+  expect(readRule(file)).toMatchObject({
     id: "meeting-notes",
-    check: ["node", "./meeting.ts"],
-    version: createHash("sha256").update(readFileSync(fixture)).digest("hex"),
-    run: { agent: "claude", worktree: false, chat: { key: "{{id}}" } },
+    schemaVersion: 2,
+    enabled: false,
+    run: { worktree: false, chat: { key: "{{id}}" } },
   });
-  expect(readRuleSnapshot(JSON.stringify(rule))).toEqual(rule);
+  const after = readFileSync(file, "utf8"),
+    stat = statSync(file);
+  expect(after).toContain("# Meeting automation");
+  expect(stat.mode & 0o777).toBe(0o640);
+  migrateInstalledRules(store);
+  expect(statSync(file).ino).toBe(stat.ino);
+  expect(readFileSync(file, "utf8")).toBe(after);
 });
-test.each([true, false])(
-  "preserves a 1.1 worktree choice of %s",
-  (worktree) => {
-    const input = { run: { agent: "codex", worktree } };
-    expect(migrateRule(input)).toEqual({
-      ...input,
-      schemaVersion: currentRuleSchema,
-    });
-  },
-);
-test("ordered migration is repeatable and leaves the input untouched", () => {
-  const input = { schemaVersion: 1, run: { agent: "codex" } };
-  const migrated = migrateRule(input);
-  expect(migrated).toEqual({
-    schemaVersion: currentRuleSchema,
-    run: { agent: "codex", worktree: false },
-  });
-  expect(migrateRule(migrated)).toEqual(migrated);
-  expect(input).toEqual({ schemaVersion: 1, run: { agent: "codex" } });
-  expect(migrateRule({ run: { command: ["true"] } }).run).toEqual({
-    command: ["true"],
-  });
+test.each([true, false])("setup preserves explicit worktree=%s", (worktree) => {
+  writeFileSync(
+    file,
+    original.replace("run:\n", `run:\n  worktree: ${worktree}\n`),
+  );
+  migrateInstalledRules(store);
+  expect(readRule(file).run).toMatchObject({ worktree });
 });
-test.each([0, -1, 1.5, null, "2"])(
-  "rejects invalid schemaVersion %s",
-  (schemaVersion) => {
-    expect(() => migrateRule({ schemaVersion })).toThrow("positive integer");
-  },
-);
-test.each([null, "false"])(
-  "rejects malformed legacy worktree %s",
-  (worktree) => {
-    const rule = readRule(fixture);
-    expect(() =>
-      readRuleSnapshot(
-        JSON.stringify({
-          ...rule,
-          schemaVersion: 1,
-          run: { ...rule.run, worktree },
-        }),
-      ),
-    ).toThrow();
-  },
-);
+test("a newer or malformed rule leaves the rest of the batch intact", () => {
+  writeFileSync(file, original);
+  const other = join(custom, "other.trigger.yaml");
+  for (const text of [
+    "schemaVersion: 999\n",
+    "schemaVersion: null\n",
+    original.replace("run:\n", "run:\n  worktree: 'true'\n"),
+  ]) {
+    writeFileSync(other, text);
+    expect(() => migrateInstalledRules(store)).toThrow(other);
+    expect(readFileSync(other, "utf8")).toBe(text);
+    expect(readFileSync(file, "utf8")).toBe(original);
+  }
+  rmSync(other);
+  migrateInstalledRules(store)();
+  expect(readFileSync(file, "utf8")).toBe(original);
+});

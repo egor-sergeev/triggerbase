@@ -33,6 +33,7 @@ test("fresh daemon → empty UI → cron job → detail → validation error", a
     writeFileSync(
       join(dir, "rules", "triage.trigger.yaml"),
       stringify({
+        schemaVersion: 2,
         id: "meeting-notes",
         cron: "* * * * *",
         run: { command: [process.execPath, "-e", "process.stdin.resume()"] },

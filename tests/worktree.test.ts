@@ -93,6 +93,16 @@ test("a queued 1.0 job runs in its original workspace after the live rule opts i
   store.db
     .prepare("INSERT INTO jobs(rule,event_id,spec,data) VALUES(?,?,?,?)")
     .run(id, "first", spec, "{}");
+  const { migrateInstalledRules } = await import("../src/rule-migrations.js");
+  migrateInstalledRules(store);
+  const updated = store.db
+    .prepare("SELECT spec FROM jobs WHERE rule=?")
+    .get(id)!.spec;
+  expect(JSON.parse(String(updated))).toEqual({
+    ...JSON.parse(spec),
+    schemaVersion: 2,
+    run: { ...old, worktree: false },
+  });
   store.put(current, [{ id: "first", data: {} }]);
   writeFileSync(log, "");
   await new Runner(store).work();
@@ -102,7 +112,7 @@ test("a queued 1.0 job runs in its original workspace after the live rule opts i
   expect(call.input).toContain("old prompt");
   expect(
     store.db.prepare("SELECT spec,status FROM jobs WHERE rule=?").all(id),
-  ).toEqual([{ spec, status: "completed" }]);
+  ).toEqual([{ spec: updated, status: "completed" }]);
 });
 test("git discovers nested and linked checkouts and handles plain or unborn directories", async () => {
   const empty = join(root, "empty");
