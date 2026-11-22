@@ -32,4 +32,6 @@ Use `hook remove SOURCE` to retire an endpoint and `devices revoke ID` to revoke
 
 ## Staging acceptance
 
+The project staging receiver runs at `https://triggerbase-relay-staging.500xp.workers.dev`. Use synthetic events for release testing. [Staging health](https://triggerbase-relay-staging.500xp.workers.dev/health)
+
 Pair two different test accounts and verify each sees only its own inbox. Stop the local runner, deliver a signed test payload twice, then restart. Verify a single completed job in the intended native chat. Revoke the device and verify the next pull fails. Rotate the webhook secret, confirm that the old one fails and confirm a valid new delivery. Verify expiry handling with staging fixtures. Run a backup restore drill and check alerts and quotas before routing real customer data.

@@ -37,9 +37,10 @@ MCP checks create disposable host profiles and use a local test tool. The sessio
 |---|---|
 | Install both host plugins from the marketplace | Codex CLI 0.170.0 and Claude Code 2.1.329, isolated profiles |
 | Call MCP without a model turn | Both real host CLIs called the fixture tool. Claude enforced its tool permission |
-| Local Codex execution | Two real jobs reused one session and recalled a random marker. Codex Desktop also read the sample job and its completed reply by ID |
+| Local Codex execution | On macOS 15.7.4, the installed alpha delivered its sample through launchd and Codex Desktop read the completed reply. A second job queued during an active turn reused the same chat and recalled the first job's marker. |
 | Computer Use from a launchd Codex job | The native tool was present. Finder, TextEdit and QuickTime window reads returned `cgWindowNotFound` on the release Mac. Window access requires another test in an active GUI session. |
 | Verified release installation | Downloaded the published archive, verified its GitHub attestation and SHA-256 checksum, and installed its packaged plugin in both host CLIs. |
+| Cloudflare staging | The deployed Worker passed its HTTPS health check and redirected to the staging GitHub OAuth App with the registered callback. A point-in-time recovery drill in a disposable Cloudflare SQLite namespace restored a deleted synthetic event and its original contents. |
 | Claude account selection | The runner rejects the configured API-key helper before executing a model turn. Live subscription and Desktop delivery require a signed-in subscription test |
 | Vendor accounts and offline production delivery | Provider fixtures and a real local Worker runtime are covered. Live staging and private SaaS destinations require operator credentials |
 
@@ -47,4 +48,4 @@ Before promoting a stable tag, run both hosts on the release Mac. Open the creat
 
 ## Publishing
 
-Run CI on Linux and macOS. The release workflow builds a portable JavaScript runner, packages both manifests and examples, produces SHA-256 checksums and requests GitHub build-provenance attestation for the archive. Release tags initially publish as previews. A live staging test, recovery drill and native acceptance are separate promotion gates.
+Run CI on Linux and macOS. The release workflow builds a portable JavaScript runner, packages both manifests and examples, produces SHA-256 checksums and requests GitHub build-provenance attestation for the archive. Tag the version in `package.json` with a leading `v`. The workflow publishes each tag as a prerelease. After live staging, recovery and native acceptance, tag the stable version (for example, `v0.1.0`). Verify the published archive and its attestation, then run `gh release edit v0.1.0 --prerelease=false --latest` to promote that release.
