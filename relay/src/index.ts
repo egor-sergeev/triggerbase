@@ -1,4 +1,5 @@
 interface Env {
+  QUEUE_METRICS?: AnalyticsEngineDataset;
   EDGE_LIMIT?: RateLimit;
   ACCOUNTS: DurableObjectNamespace;
   GITHUB_CLIENT_ID: string;
@@ -193,12 +194,15 @@ export class Account {
   }
   async alarm() {
     const now = Date.now();
-    const expired = Number(
-      this.one(
-        "SELECT COUNT(*) AS n FROM events WHERE created<?",
-        now - 30 * day,
-      )?.n || 0,
+    const stats = this.one(
+      "SELECT MIN(created) AS oldest, COUNT(CASE WHEN created < ? THEN 1 END) AS expired FROM events",
+      now - 30 * day,
     );
+    const expired = Number(stats?.expired || 0);
+    if (stats?.oldest != null)
+      this.env.QUEUE_METRICS?.writeDataPoint({
+        doubles: [(now - Number(stats.oldest)) / day, expired],
+      });
     if (expired)
       this.sql.exec(
         "INSERT INTO stats VALUES('expired',?) ON CONFLICT(k) DO UPDATE SET n=n+excluded.n",
@@ -401,8 +405,8 @@ export class Account {
         await this.ctx.storage.setAlarm(now + day);
       if (this.one("SELECT id FROM seen WHERE id=?", id))
         return json({ id, duplicate: true });
-      if (Number(this.one("SELECT COUNT(*) AS n FROM events")!.n) >= 256)
-        return deny(429);
+      const pending = Number(this.one("SELECT COUNT(*) AS n FROM events")!.n);
+      if (pending >= 256) return deny(429);
       this.ctx.storage.transactionSync(() => {
         this.sql.exec("INSERT INTO seen VALUES(?,?)", id, now);
         this.sql.exec(
@@ -413,6 +417,7 @@ export class Account {
           now,
         );
       });
+      if (pending === 0) this.env.QUEUE_METRICS?.writeDataPoint({ doubles: [0, 0] });
       return json({ id }, 202);
     }
     const token = (req.headers.get("authorization") || "").slice(7),

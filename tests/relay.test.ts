@@ -203,3 +203,42 @@ test("offline receiver → durable local inbox → interrupted ACK → restart �
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("daily alarm records anonymous queue age and reports each expiry once", async () => {
+  const { Account } = await import("../relay/src/index.js");
+  const { DatabaseSync } = await import("node:sqlite");
+  const db = new DatabaseSync(":memory:");
+  const measurements: unknown[] = [];
+  const alarms: number[] = [];
+  const day = 86_400_000;
+  try {
+    const storage = {
+      sql: {
+        exec(sql: string, ...args: (number | string)[]) {
+          const statement = db.prepare(sql);
+          const rows = statement.all(...args);
+          return { toArray: () => rows };
+        },
+      },
+      setAlarm: async (time: number) => { alarms.push(time); },
+    };
+    const actor = new Account({ storage } as never, {
+      QUEUE_METRICS: { writeDataPoint: (point: unknown) => measurements.push(point) },
+    } as never);
+    const put = db.prepare("INSERT INTO events VALUES(?, 'private-source', X'01', ?)");
+    const now = Date.now();
+    put.run("old", now - 31 * day);
+    put.run("recent", now - day);
+    await actor.alarm();
+    await actor.alarm();
+    expect(measurements).toEqual([
+      { doubles: [expect.closeTo(31, 2), 1] },
+      { doubles: [expect.closeTo(1, 2), 0] },
+    ]);
+    expect(alarms).toHaveLength(2);
+    expect(db.prepare("SELECT id FROM events").all()).toEqual([{ id: "recent" }]);
+    expect(db.prepare("SELECT n FROM stats WHERE k='expired'").get()?.n).toBe(1);
+  } finally {
+    db.close();
+  }
+});

@@ -3,6 +3,9 @@
   "name": "triggerbase-relay-staging",
   "main": "src/index.ts",
   "compatibility_date": "2026-05-01",
+  "analytics_engine_datasets": [
+    { "binding": "QUEUE_METRICS", "dataset": "triggerbase_queue_staging" }
+  ],
   "durable_objects": {
     "bindings": [
       {
@@ -20,6 +23,9 @@
   "env": {
     "production": {
       "name": "triggerbase-relay",
+      "analytics_engine_datasets": [
+        { "binding": "QUEUE_METRICS", "dataset": "triggerbase_queue" }
+      ],
       "durable_objects": {
         "bindings": [
           {

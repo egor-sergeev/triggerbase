@@ -2,7 +2,7 @@
 
 Run your **local coding agent** when a customer replies, a meeting transcript arrives, a pull request merges, or a scheduled script finds work. Deliver the prompt to a new chat, one persistent chat, or the chat for a particular conversation. A public HTTPS receiver can hold webhooks while your Mac sleeps.
 
-**Preview release.** The local runner, journal and Cloudflare receiver are included. Codex has completed a live local job. Both hosts passed direct MCP calls against a test server. Claude Desktop session delivery and unattended access to individual SaaS accounts still need live verification. Native Computer Use could not read a window in the latest background test. The hosted receiver needs operator provisioning. Local cron works immediately.
+**Preview release.** The local runner, journal and Cloudflare receiver are included. Codex has completed a live local job. Both hosts passed direct MCP calls against a test server. Claude Desktop session delivery and unattended access to individual SaaS accounts still need live verification. Native Computer Use could not read a window in the latest background test. The hosted receiver is available for the preview. A signed production webhook completed a job in Codex. Local cron works immediately.
 
 ## Install by asking your agent
 
@@ -48,6 +48,17 @@ triggerbase ui
 ```
 
 The sample requests one short reply in a shared chat. A repeated sample uses the same event ID. Open its job to see the session and delivery history. Follow any host prompt to reload your plugin. Agent jobs use the locally signed-in subscription account. A CLI configured for API-key billing fails the preflight.
+
+## Receive a public webhook
+
+Pair your Mac with the hosted receiver using your GitHub public profile. Then register a source:
+
+```sh
+triggerbase login https://triggerbase-relay.500xp.workers.dev
+triggerbase hook add pull-requests github
+```
+
+Enter the returned URL and signing secret in the sender’s webhook settings. Set `webhook: pull-requests` in the rule. Run `triggerbase jobs` to see deliveries. [Self-hosting and delivery limits](docs/relay.md)
 
 ## Configure a trigger
 

@@ -4,7 +4,7 @@ The TypeScript Worker and its SQLite-backed Durable Objects run in Cloudflare. A
 
 ## Provision an environment
 
-1. Use the Cloudflare account intended for this service. Run `pnpm install --frozen-lockfile` and `pnpm exec wrangler whoami`. Choose a workers.dev subdomain or configure a custom domain.
+1. Use the Cloudflare account intended for this service. Run `pnpm install --frozen-lockfile` and `pnpm exec wrangler whoami`. Choose a workers.dev subdomain or configure a custom domain. Enable Workers Analytics Engine on the target account for anonymous queue metrics.
 2. Prepare a GitHub OAuth App per environment. Its homepage is the relay origin and its authorization callback is `https://YOUR-RELAY/auth/callback`. Generate a client secret. The flow needs public account identity.
 3. Set Worker secrets with `pnpm exec wrangler secret put NAME --config relay/wrangler.jsonc`. Set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, and `ENCRYPTION_KEY` (32 random bytes, base64). Paste secrets through Wrangler's input prompt or an approved secret manager. Add `--env production` to every production secret and deployment command.
 4. Deploy staging with `pnpm deploy:relay`. Run the offline delivery and device revocation checks below. Deploy production with `pnpm deploy:relay --env production`. `GET /health` is a liveness check. Pairing and an authenticated signed test delivery verify the configured secrets and storage.
@@ -35,3 +35,11 @@ Use `hook remove SOURCE` to retire an endpoint and `devices revoke ID` to revoke
 The project staging receiver runs at `https://triggerbase-relay-staging.500xp.workers.dev`. Use synthetic events for release testing. [Staging health](https://triggerbase-relay-staging.500xp.workers.dev/health)
 
 Pair two different test accounts and verify each sees only its own inbox. Stop the local runner, deliver a signed test payload twice, then restart. Verify a single completed job in the intended native chat. Revoke the device and verify the next pull fails. Rotate the webhook secret, confirm that the old one fails and confirm a valid new delivery. Verify expiry handling with staging fixtures. Run a backup restore drill and check alerts and quotas before routing real customer data.
+
+## Production monitoring
+
+The Production relay monitor GitHub Actions workflow checks the public health endpoint every 15 minutes. Its Cloudflare token has Account Analytics Read on the hosting account. It queries sampled Worker traffic and SQLite storage for the preceding hour. The job fails on HTTP 429, HTTP 5xx, runtime errors, or namespace storage at 1 GiB. GitHub delivers failed scheduled workflow notifications according to the schedule owner's notification settings.
+
+Each nonempty queue reports its oldest event's age and the number of expirations to Analytics Engine during daily cleanup. A newly nonempty queue reports zero for both values. The monitor checks the last 25 hours and fails at seven days of age or one expiration. These measurements contain only two numbers. Staging and production write to separate datasets. The Cloudflare account also emails its owner at a $5 budget threshold.
+
+For another deployment, set the repository variables `CF_ACCOUNT_ID` and `CF_RELAY_NAMESPACE` (the production Durable Object namespace ID), the secret `CF_ANALYTICS_TOKEN`, and the origin, script and dataset names in `scripts/monitor-relay.ts`. Run the workflow manually to verify credentials and the first queue sample after sending a signed webhook.
