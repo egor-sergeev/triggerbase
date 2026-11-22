@@ -91,6 +91,14 @@ try {
           version,
         }),
       );
+    changeVersion("2.0.0");
+    await setup(fixture);
+    changeVersion("1.0.0");
+    await assert.rejects(setup(fixture), /newer shared runner/);
+    changeVersion("1.1.0");
+    await setup(fixture);
+    assert.equal(JSON.parse(cli("jobs")).length, 1);
+    const beforeUpgrade = pid();
     changeVersion("9998.0.0");
     const busy = db
       .prepare(
@@ -99,10 +107,10 @@ try {
       .run().lastInsertRowid;
     const updating = setup(fixture);
     await sleep(2000);
-    assert.equal(pid(), first);
+    assert.equal(pid(), beforeUpgrade);
     db.prepare("UPDATE jobs SET status='completed' WHERE id=?").run(busy);
     await updating;
-    assert.ok(pid() && pid() !== first);
+    assert.ok(pid() && pid() !== beforeUpgrade);
     const working = readlinkSync(launcher);
     changeVersion("9999.0.0");
     // Preflight passes but the candidate daemon fails to start. Restore the prior service.

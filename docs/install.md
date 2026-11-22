@@ -18,7 +18,9 @@ The installer selects a pinned official Node.js runtime for the Mac, checks its 
 
 ## Update or remove
 
-**Updating from 1.x.** Add an explicit `worktree: false` under `run` in each existing agent rule to keep its current behavior, or choose `true` for new chats in separate Git worktrees. Include disabled rules and registered custom paths. Command rules keep their existing format. The new runner reports a missing choice in the Rules journal. Existing queued jobs retain the policy recorded at enqueue time (in-place for 1.x snapshots).
+**Updating from 1.0.x or earlier.** Add an explicit `worktree: false` under `run` in each existing agent rule to keep its current behavior, or choose `true` for new chats in separate Git worktrees. Include disabled rules and registered custom paths. Command rules keep their existing format. The new runner reports a missing choice in the Rules journal. Existing queued jobs retain the policy recorded at enqueue time (in-place for snapshots created before worktree support).
+
+**Updating from the historical 2.0.0 release.** Worktree support was renumbered to 1.1.0. Use the usual update procedure below. The installer recognizes the transition and reuses your rules, job history and device pairing.
 
 Refresh the GitHub marketplace in the current host (`codex plugin marketplace upgrade triggerbase` or `claude plugin marketplace update triggerbase`). Apply the new plugin version with `codex plugin add triggerbase@triggerbase --json` or `claude plugin update triggerbase@triggerbase`. Run setup from that installed version and check readiness. Each host shares the same runner. If a job is active, setup waits up to a minute, then asks you to retry after the job completes.
 

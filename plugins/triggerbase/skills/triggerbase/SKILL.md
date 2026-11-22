@@ -3,7 +3,7 @@ name: triggerbase
 description: Create, test, enable and disable local webhook and cron rules for Codex or Claude Code, inspect Triggerbase jobs and open the journal.
 ---
 
-When upgrading from 1.x, inspect the existing rules using the installed CLI. Migrate agent rules to explicit `run.worktree: false` to preserve in-place execution unless the user asks for isolation. Keep command rules unchanged. Verify rule discovery after setup.
+When upgrading from 1.0.x or earlier, inspect the existing rules using the installed CLI. Migrate agent rules to explicit `run.worktree: false` to preserve in-place execution unless the user asks for isolation. Keep command rules unchanged. Verify rule discovery after setup. The historical 2.0.0 release already uses this rule format. Update both installed hosts to the current release and run its setup to transition the shared runner.
 
 On install, update, or first use from a manually installed plugin, run `/bin/sh "<installed plugin root>/setup.sh"`. The plugin root is two directories above this skill directory. Wait for the readiness message. Use `~/.local/bin/triggerbase` if the command is outside PATH. If setup was the whole request, report readiness and ask what the user wants to automate. Skip demo jobs and relay pairing. For an uninstall or stop request, use the existing CLI directly.
 

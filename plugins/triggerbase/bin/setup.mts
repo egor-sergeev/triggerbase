@@ -50,7 +50,9 @@ try {
     resolve(dirname(link), readlinkSync(link))
       .slice(base.length + 2)
       .split("/")[0];
-  const [oldCore, oldPreview] = (oldVersion || "0.0.0").split("-");
+  // The published 2.0.0 worktree build immediately preceded its correction to 1.1.0.
+  const previous = oldVersion === "2.0.0" ? "1.1.0-legacy" : oldVersion;
+  const [oldCore, oldPreview] = (previous || "0.0.0").split("-");
   const [core, preview] = version.split("-");
   const compare = (a: string, b: string) =>
     a.localeCompare(b, "en", { numeric: true });
