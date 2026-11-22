@@ -18,7 +18,11 @@ triggerbase hook add pull-requests github
 triggerbase devices
 ```
 
-The sign-in opens GitHub in a browser. A one-time code returns to a loopback port. The CLI redeems it with a verifier and stores the device token in Keychain. The hook command returns a public URL and a one-time secret. Enter these in the provider's webhook settings. Avoid saving that command's output in a shared log. The rule's `webhook` value is the source name, here `pull-requests`. Other supported verifier names are `circleback` and `bearer`.
+The sign-in opens GitHub in a browser. A one-time code returns to a loopback port. The CLI redeems it with a verifier and stores the device token in Keychain. GitHub and bearer hooks return a public URL and a one-time secret. Enter these in the sender’s webhook settings. Avoid saving that command's output in a shared log. The rule's `webhook` value is the source name, here `pull-requests`.
+
+**Circleback issues the signing key.** Run `triggerbase hook add meetings circleback`, enter the returned URL in the Circleback automation’s **Send webhook request** step, then copy its signing key. On macOS, run `pbpaste | triggerbase hook signing-key meetings` and clear the clipboard. The endpoint accepts deliveries after the key is set. Use the same command when Circleback rotates its key. Test the webhook in Circleback before enabling the automation. [Circleback webhook setup](https://circleback.ai/integrations/webhooks)
+
+For a title-only rule use `triggerbase hook add meetings circleback --title-only personal Sensitive`. After verifying the signature, the receiver drops meetings with any listed tag (case-insensitive) and queues only `id` and `name`. Omit the tags to include every meeting. The default Circleback hook forwards the signed JSON in full.
 
 Use `hook remove SOURCE` to retire an endpoint and `devices revoke ID` to revoke an installation. To rotate an endpoint without a delivery gap, register a temporary new source, test it, update the sender and remove the old one. For receiver encryption-key rotation, deploy the old key under `PREVIOUS_ENCRYPTION_KEY` before changing `ENCRYPTION_KEY`. Recreate old endpoint secrets and drain or expire old encrypted events before removing the previous key. Keep old backup keys in protected escrow for the backup retention period.
 

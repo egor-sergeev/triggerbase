@@ -28,7 +28,7 @@ The agent creates a weekly rule for that project. At 4 pm local time on Friday, 
 | When an API or file changes | Cron runs a check script. The script returns events with stable IDs and any data the prompt needs. An empty result uses no agent turn. A saved cursor lets the next check pick up where it left off. |
 | When a service sends a webhook | A public HTTPS receiver verifies and queues the payload. Your Mac receives a notification and pulls the event. The rule can extract fields, filter events and group related messages into chats. |
 
-For your first public webhook, ask the agent to connect the sender. It pairs your Mac with the hosted receiver using your GitHub identity, then registers the source. Enter the returned URL and signing secret in the sender’s webhook settings. Scheduled rules work locally without pairing. [Webhook setup, supported signatures and retention](docs/relay.md)
+For your first public webhook, ask the agent to connect the sender. It pairs your Mac with the hosted receiver using your GitHub identity, then registers the source. Enter the returned URL in the sender’s webhook settings. For Circleback, copy its signing key into Triggerbase. Scheduled rules work locally without pairing. [Webhook setup, supported signatures and retention](docs/relay.md)
 
 ## Where rules, data and results live
 

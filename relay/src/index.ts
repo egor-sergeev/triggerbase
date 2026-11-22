@@ -162,6 +162,9 @@ export class Account {
       "CREATE TABLE IF NOT EXISTS hooks(id TEXT PRIMARY KEY,source TEXT UNIQUE,kind TEXT,secret BLOB)",
     );
     this.sql.exec(
+      "CREATE TABLE IF NOT EXISTS circleback_titles(hook TEXT PRIMARY KEY REFERENCES hooks(id) ON DELETE CASCADE,excluded_tags TEXT NOT NULL)",
+    );
+    this.sql.exec(
       "CREATE TABLE IF NOT EXISTS events(id TEXT PRIMARY KEY,source TEXT,body BLOB,created INTEGER)",
     );
     this.sql.exec(
@@ -367,7 +370,8 @@ export class Account {
       if (!this.allow("ingress", 600)) return deny(429);
       const hook = this.one("SELECT * FROM hooks WHERE id=?", p[3]);
       if (!hook) return deny(404);
-      const body = await bounded(req, 1024 * 1024);
+      if (!hook.secret) return deny(403);
+      let body = await bounded(req, 1024 * 1024);
       const secret = await unseal(
         env,
         hook.secret as ArrayBuffer,
@@ -410,7 +414,38 @@ export class Account {
         )
           return deny();
       }
-      JSON.parse(dec.decode(body));
+      const payload = JSON.parse(dec.decode(body));
+      if (hook.kind === "circleback") {
+        const title = this.one(
+          "SELECT excluded_tags FROM circleback_titles WHERE hook=?",
+          hook.id,
+        );
+        if (title) {
+          const tags: string[] = JSON.parse(String(title.excluded_tags));
+          if (
+            Array.isArray(payload?.tags) &&
+            payload.tags.some(
+              (tag: unknown) =>
+                typeof tag === "string" &&
+                tags.includes(tag.trim().toLowerCase()),
+            )
+          )
+            return new Response(null, { status: 204 });
+          const id = payload?.id;
+          if (
+            !(
+              (typeof id === "string" && id.trim() && id.length <= 512) ||
+              Number.isSafeInteger(id)
+            ) ||
+            typeof payload.name !== "string" ||
+            !payload.name.trim()
+          )
+            return deny(400);
+          body = new Uint8Array(
+            enc.encode(JSON.stringify({ id: String(id), name: payload.name })),
+          );
+        }
+      }
       const id = await digest(hook.source + ":" + (await digest(body.buffer))),
         cipher = await seal(env.ENCRYPTION_KEY, body, "event/" + id);
       if (!(await this.ctx.storage.getAlarm()))
@@ -456,11 +491,21 @@ export class Account {
       return json({ ok: true });
     }
     if (u.pathname === "/v1/hooks" && req.method === "POST") {
-      const { source, kind } = JSON.parse(dec.decode(await bounded(req, 2048)));
+      const { source, kind, titleOnly } = JSON.parse(
+        dec.decode(await bounded(req, 2048)),
+      );
       if (
         typeof source !== "string" ||
         !/^[a-z0-9_-]{1,80}$/.test(source) ||
-        !["github", "circleback", "bearer"].includes(kind)
+        !["github", "circleback", "bearer"].includes(kind) ||
+        (titleOnly !== undefined &&
+          (kind !== "circleback" ||
+            !Array.isArray(titleOnly) ||
+            titleOnly.length > 32 ||
+            titleOnly.some(
+              (tag: unknown) =>
+                typeof tag !== "string" || !tag.trim() || tag.length > 80,
+            )))
       )
         return deny(400);
       if (this.one("SELECT id FROM hooks WHERE source=?", source))
@@ -468,20 +513,31 @@ export class Account {
       if (Number(this.one("SELECT COUNT(*) AS n FROM hooks")!.n) >= 32)
         return deny(429);
       const id = random(),
-        secret = random(),
-        cipher = await seal(
-          env.ENCRYPTION_KEY,
-          new Uint8Array(enc.encode(secret)),
-          "hook/" + id,
-        );
+        secret = kind === "circleback" ? null : random(),
+        cipher =
+          secret === null
+            ? null
+            : await seal(
+                env.ENCRYPTION_KEY,
+                new Uint8Array(enc.encode(secret)),
+                "hook/" + id,
+              );
       this.ctx.storage.transactionSync(() => {
         this.sql.exec(
           "INSERT INTO hooks VALUES(?,?,?,?)",
           id,
           source,
           kind,
-          cipher.buffer,
+          cipher?.buffer ?? null,
         );
+        if (titleOnly)
+          this.sql.exec(
+            "INSERT INTO circleback_titles VALUES(?,?)",
+            id,
+            JSON.stringify(
+              titleOnly.map((tag: string) => tag.trim().toLowerCase()),
+            ),
+          );
         this.sql.exec(
           "INSERT OR REPLACE INTO consumers VALUES(?,?)",
           source,
@@ -491,9 +547,40 @@ export class Account {
       if (this.one("SELECT id FROM events WHERE source=? LIMIT 1", source))
         this.notify(hash);
       return json(
-        { url: u.origin + "/h/" + token.split(".")[0] + "/" + id, secret },
+        {
+          url: u.origin + "/h/" + token.split(".")[0] + "/" + id,
+          ...(secret === null ? { signingKeyRequired: true } : { secret }),
+        },
         201,
       );
+    }
+    if (
+      p.length === 5 &&
+      p[2] === "hooks" &&
+      p[4] === "signing-key" &&
+      req.method === "PUT"
+    ) {
+      const hook = this.one(
+        "SELECT hooks.id FROM hooks JOIN consumers USING(source) WHERE source=? AND kind='circleback' AND device=?",
+        p[3],
+        hash,
+      );
+      if (!hook) return deny(404);
+      const { secret } = JSON.parse(dec.decode(await bounded(req, 2048)));
+      if (typeof secret !== "string" || !/^[!-~]{16,512}$/.test(secret))
+        return deny(400);
+      const cipher = await seal(
+        env.ENCRYPTION_KEY,
+        new Uint8Array(enc.encode(secret)),
+        "hook/" + hook.id,
+      );
+      const result = this.sql.exec(
+        "UPDATE hooks SET secret=? WHERE id=? AND source IN (SELECT source FROM consumers WHERE device=?)",
+        cipher.buffer,
+        hook.id,
+        hash,
+      );
+      return result.rowsWritten ? json({ ok: true }) : deny(404);
     }
     if (p[2] === "hooks" && req.method === "DELETE") {
       this.sql.exec("DELETE FROM hooks WHERE source=?", p[3]);

@@ -22,7 +22,7 @@ import { startRelayFeed } from "./relay-feed.js";
 import { startUI } from "./ui.js";
 
 const help =
-  "triggerbase start | service install|stop|uninstall | paths [add|remove PATH] | rules | preview FILE EVENT.json | sample [codex|claude] | jobs | ui [--url] | login HTTPS_ORIGIN | hook add SOURCE github|circleback|bearer | hook remove SOURCE | devices [revoke ID] | mcp call HOST SERVER TOOL";
+  "triggerbase start | service install|stop|uninstall | paths [add|remove PATH] | rules | preview FILE EVENT.json | sample [codex|claude] | jobs | ui [--url] | login HTTPS_ORIGIN | hook add SOURCE github|circleback|bearer [--title-only [EXCLUDED_TAG...]] | hook signing-key SOURCE < KEY | hook remove SOURCE | devices [revoke ID] | mcp call HOST SERVER TOOL";
 function print(v: unknown) {
   console.log(JSON.stringify(v, null, 2));
 }
@@ -179,14 +179,35 @@ async function main() {
         );
         break;
       case "hook": {
-        if (args[0] === "add")
+        if (args[0] === "add") {
+          if (
+            args.length < 3 ||
+            (args.length > 3 &&
+              (args[2] !== "circleback" || args[3] !== "--title-only"))
+          )
+            throw Error(help);
           print(
             await api(store, "/v1/hooks", "POST", {
               source: args[1],
               kind: args[2],
+              titleOnly: args.length > 3 ? args.slice(4) : undefined,
             }),
           );
-        else if (args[0] === "remove")
+        } else if (args[0] === "signing-key" && args.length === 2) {
+          if (process.stdin.isTTY)
+            throw Error("Pipe the Circleback signing key on stdin.");
+          const secret = readFileSync(0, "utf8").replace(/\r?\n$/, "");
+          if (!/^[!-~]{16,512}$/.test(secret))
+            throw Error("Invalid Circleback signing key on stdin");
+          print(
+            await api(
+              store,
+              "/v1/hooks/" + encodeURIComponent(args[1]) + "/signing-key",
+              "PUT",
+              { secret },
+            ),
+          );
+        } else if (args[0] === "remove")
           print(
             await api(
               store,

@@ -126,8 +126,25 @@ test("offline receiver → durable local inbox → interrupted ACK → restart �
     headers: auth,
     body: JSON.stringify({ source: "meetings", kind: "circleback" }),
   });
-  const { url, secret } = (await hook.json()) as any;
+  const { url, ...registration } = (await hook.json()) as any;
+  expect(registration).toEqual({ signingKeyRequired: true });
+  const secret = "circleback-provider-issued-key";
   const body = JSON.stringify({ id: 327, transcript: "A test conversation" });
+  const headers = {
+    "x-signature": createHmac("sha256", secret).update(body).digest("hex"),
+  };
+  expect(
+    (await mf.dispatchFetch(url, { method: "POST", body, headers })).status,
+  ).toBe(403);
+  const setKey = (token: string, value: string) =>
+    mf.dispatchFetch(app + "/v1/hooks/meetings/signing-key", {
+      method: "PUT",
+      headers: { authorization: "Bearer " + token },
+      body: JSON.stringify({ secret: value }),
+    });
+  expect((await setKey(await pair(), secret)).status).toBe(404);
+  expect((await setKey(token, "")).status).toBe(400);
+  expect((await setKey(token, secret)).status).toBe(200);
   const signature = createHmac("sha256", secret).update(body).digest("hex");
   expect(
     (
@@ -203,6 +220,49 @@ test("offline receiver → durable local inbox → interrupted ACK → restart �
     store.close();
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("Circleback title-only mode filters signed tags before storage and rotates the provider key", async () => {
+  owner = "32";
+  const auth = { authorization: "Bearer " + (await pair()) };
+  const request = (path: string, method: string, value?: unknown) =>
+    mf.dispatchFetch(app + path, {
+      method,
+      headers: auth,
+      body: JSON.stringify(value),
+    });
+  const registered = await request("/v1/hooks", "POST", {
+    source: "titles",
+    kind: "circleback",
+    titleOnly: ["personal", "Sensitive"],
+  });
+  expect(registered.status).toBe(201);
+  const { url } = (await registered.json()) as { url: string };
+  const old = "old-provider-signing-key",
+    key = "new-provider-signing-key";
+  for (const secret of [old, key])
+    expect(
+      (await request("/v1/hooks/titles/signing-key", "PUT", { secret })).status,
+    ).toBe(200);
+  const send = (payload: object, secret = key) => {
+    const body = JSON.stringify(payload);
+    return mf.dispatchFetch(url, {
+      method: "POST",
+      body,
+      headers: {
+        "x-signature": createHmac("sha256", secret).update(body).digest("hex"),
+      },
+    });
+  };
+  const meeting = { id: 123, name: "Title", transcript: "private" };
+  expect((await send(meeting, old)).status).toBe(403);
+  expect((await send({ ...meeting, tags: [" SENSITIVE "] })).status).toBe(204);
+  expect(await (await request("/v1/events", "GET")).json()).toBeNull();
+  expect((await send(meeting)).status).toBe(202);
+  expect((await send({ ...meeting, transcript: "updated" })).status).toBe(200);
+  expect(
+    ((await (await request("/v1/events", "GET")).json()) as any).body,
+  ).toEqual({ id: "123", name: "Title" });
 });
 
 test("server wakes only the subscribed device after persistence and disconnects it on revocation", async () => {
