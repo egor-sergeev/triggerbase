@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import { randomUUID } from "node:crypto";
+import pkg from "../package.json" with { type: "json" };
 import { execute } from "./process.js";
 import { type Store, type Job } from "./store.js";
 import { plan, type Rule } from "./rules.js";
@@ -69,7 +70,7 @@ export async function codexRpc<T>(
       clientInfo: {
         name: "triggerbase",
         title: "Triggerbase",
-        version: "0.1.0-alpha.3",
+        version: pkg.version,
       },
       capabilities: { experimentalApi: true },
     });

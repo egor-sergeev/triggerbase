@@ -10,7 +10,7 @@ Open **Codex or Claude Code on your Mac** and paste this message:
 
 Your agent follows the [installation instructions](docs/install.md), installs the plugin for the current host, and checks that the local job journal responds. Expect a readiness message and a question about your first automation. Installation runs under your macOS account and downloads its own Node.js runtime. If you use both hosts, paste the prompt in each. They share one runner and one set of rules.
 
-**Requirements.** A Mac with Apple silicon or Intel, internet access for installation, and a local Codex or Claude Code CLI. Agent jobs use the host’s signed-in subscription. This is a preview. Live chat delivery has been verified in Codex. Claude subscription chat delivery and unattended Computer Use still need live verification. [Test coverage](docs/development.md#native-acceptance-on-macos)
+**Requirements.** A Mac with Apple silicon or Intel, internet access for installation, and a local Codex or Claude Code CLI. Agent jobs use the host’s signed-in subscription. Live chat delivery has been verified in Codex. Claude subscription chat delivery and unattended Computer Use still need live verification. [Test coverage](docs/development.md#native-acceptance-on-macos)
 
 ## Create your first automation
 

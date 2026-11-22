@@ -6,6 +6,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { Store } from "./store.js";
 import { Runner } from "./runner.js";
 import { home, absolute, eventSchema, plan, readRule } from "./rules.js";
+import pkg from "../package.json" with { type: "json" };
 import { execute } from "./process.js";
 import { mcp } from "./hosts.js";
 import { api, login } from "./cloud.js";
@@ -63,6 +64,10 @@ async function daemon(store: Store) {
 async function main() {
   process.umask(0o077);
   const [cmd, ...args] = process.argv.slice(2);
+  if (cmd === "--version") {
+    console.log(pkg.version);
+    return;
+  }
   if (!cmd || cmd === "--help") {
     console.log(help);
     return;

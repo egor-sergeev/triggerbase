@@ -1,4 +1,4 @@
-name: Release preview
+name: Release
 on:
   push:
     tags: ["v*"]
@@ -24,10 +24,10 @@ jobs:
       - run: pnpm bundle && node scripts/package-plugin.ts --check && node release/cli.js --help
       - name: Package the runner and plugin sources
         run: |
-          tar -czf triggerbase.tgz -C release cli.js -C "$GITHUB_WORKSPACE" LICENSE README.md plugins .agents/plugins .claude-plugin examples
+          tar -czf triggerbase.tgz -C release cli.js -C "$GITHUB_WORKSPACE" LICENSE README.md AGENTS.md docs plugins .agents/plugins .claude-plugin examples
           sha256sum triggerbase.tgz > SHA256SUMS
       - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
         with: { subject-path: triggerbase.tgz }
-      - name: Publish installable preview
+      - name: Publish GitHub release
         env: { GH_TOKEN: "${{ github.token }}" }
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --prerelease --title "Triggerbase $GITHUB_REF_NAME" --generate-notes triggerbase.tgz SHA256SUMS
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --latest --title "Triggerbase $GITHUB_REF_NAME" --generate-notes triggerbase.tgz SHA256SUMS
