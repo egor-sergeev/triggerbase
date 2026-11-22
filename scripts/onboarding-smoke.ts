@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import {
   existsSync,
   mkdtempSync,
+  mkdirSync,
   cpSync,
   readFileSync,
   writeFileSync,
@@ -98,6 +99,50 @@ try {
     changeVersion("1.1.0");
     await setup(fixture);
     assert.equal(JSON.parse(cli("jobs")).length, 1);
+    const custom = join(dir, "project rules");
+    mkdirSync(custom);
+    const legacy = join(custom, "meeting.trigger.yaml");
+    const originalRule = readFileSync(
+      new URL(
+        "../tests/fixtures/circleback-v1.0.0.trigger.yaml",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    writeFileSync(legacy, originalRule, { mode: 0o444 });
+    writeFileSync(
+      join(custom, "future.trigger.yaml"),
+      "schemaVersion: 999\nid: future\n",
+    );
+    cli("paths", "add", custom);
+    await setup(source);
+    const catalog = JSON.parse(cli("rules"));
+    assert.deepEqual(
+      catalog.rules.map((r: { id: string }) => r.id).sort(),
+      ["meeting-notes", spec.id].sort(),
+    );
+    const meeting = catalog.rules.find(
+      (r: { id: string }) => r.id === "meeting-notes",
+    );
+    assert.equal(meeting.enabled, false);
+    assert.equal(meeting.run.worktree, false);
+    assert.match(
+      String(Object.values(catalog.errors)),
+      /schemaVersion 999 requires a newer Triggerbase/,
+    );
+    const event = join(custom, "preview.json");
+    writeFileSync(
+      event,
+      JSON.stringify({
+        id: "m1",
+        data: { id: "m1", actionItems: [], transcript: "test transcript" },
+      }),
+    );
+    const preview = JSON.parse(cli("preview", legacy, event));
+    assert.equal(preview.worktree, false);
+    assert.match(preview.prompt, /test transcript/);
+    assert.equal(readFileSync(legacy, "utf8"), originalRule);
+    assert.equal(JSON.parse(cli("jobs")).length, 1);
     const beforeUpgrade = pid();
     changeVersion("9998.0.0");
     const busy = db
@@ -134,7 +179,7 @@ try {
     db.close();
   }
   console.log(
-    "Verified checksum rejection, concurrent install, login service, cron, repeat setup, busy upgrade and rollback.",
+    "Verified checksum rejection, concurrent install, login service, cron, legacy rule migration, repeat setup, busy upgrade and rollback.",
   );
 } finally {
   try {

@@ -7,6 +7,7 @@
 - **MINOR** for new features. A feature that requires a new rule field or a configuration migration still gets a minor release. Document the migration and give users a working example. Worktree support is `1.1.0`.
 - **MAJOR** only for a full rebuild of the product. Reset the lower components when incrementing a major or minor number.
 - Treat `package.json` as the version source. Both host manifests, the portable plugin manifest and the packaged runner must match. Run `pnpm package:plugin` when preparing a release.
+- When a rule format changes, add one ordered step in `src/rule-migrations.ts`. Preserve historical behavior for files and queued snapshots. Test upgrades from earlier formats and update the examples and rule authoring instructions.
 - Tag the tested commit after Linux and macOS CI pass. Publish it as a regular GitHub release with the archive, checksums and build attestation. Keep published tags and assets immutable, including historical previews. Ship corrections under a new version.
 - Record known host or platform limitations in the release documentation. See the [publishing procedure](docs/development.md#publishing).
 

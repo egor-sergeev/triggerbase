@@ -1,3 +1,4 @@
+schemaVersion: 2
 id: meeting-notes
 enabled: false
 webhook: circleback

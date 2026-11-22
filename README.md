@@ -39,6 +39,6 @@ For your first public webhook, ask the agent to connect the sender. It pairs you
 - **Sleep and reboot.** Webhooks stay queued for up to 30 days. After wake or reconnect, the runner retrieves them. Each enabled cron rule gets one catch-up check after missed ticks. After reboot the runner starts when you log in.
 - **Privacy and cost.** Local-only rules keep their configuration and history on your Mac. Agent prompts go to the host you chose. Public webhook bodies pass through the receiver and are encrypted while queued. Checks that emit no events have no model cost. Agent jobs use your host subscription. [Security](SECURITY.md) · [Receiver limits and hosting costs](docs/relay.md)
 
-To update, ask “Update Triggerbase and verify it starts at login.” To remove it, ask “Uninstall Triggerbase from this Mac and keep my rules and history.” [Update and removal](docs/install.md#update-or-remove)
+To update, ask “Update Triggerbase and verify it starts at login.” Existing rules migrate automatically when the runner reads them, including rules stored in your repositories. To remove it, ask “Uninstall Triggerbase from this Mac and keep my rules and history.” [Update and removal](docs/install.md#update-or-remove)
 
 [Example rules](examples) · [Build and test](docs/development.md) · [License](LICENSE)

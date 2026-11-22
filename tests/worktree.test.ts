@@ -47,7 +47,7 @@ if(args[0]==='app-server') require('node:readline').createInterface({input:proce
 else if(args[0]==='login') console.log('Logged in using ChatGPT');
 else if(args[0]==='auth') json({loggedIn:true,authMethod:'claude.ai'});
 else {
-fs.appendFileSync(${JSON.stringify(log)},JSON.stringify({args,cwd:process.cwd()})+'\\n');
+fs.appendFileSync(${JSON.stringify(log)},JSON.stringify({args,cwd:process.cwd(),input:fs.readFileSync(0,'utf8')})+'\\n');
 if(args[0]==='exec'){json({type:'thread.started',thread_id:args[1]==='resume'?args[2]:require('crypto').randomUUID()});json({type:'turn.completed'})}
 else json({type:'result',is_error:false});
 }`,
@@ -61,7 +61,10 @@ afterAll(() => {
 });
 const file = join(root, "rules", "fixture.trigger.yaml");
 const rule = (id: string, run: object) => {
-  writeFileSync(file, JSON.stringify({ id, webhook: "fixture", run }));
+  writeFileSync(
+    file,
+    JSON.stringify({ schemaVersion: 2, id, webhook: "fixture", run }),
+  );
   return readRule(file);
 };
 test("worktree is an explicit boolean for agent rules", () => {
@@ -69,6 +72,37 @@ test("worktree is an explicit boolean for agent rules", () => {
   expect(() => rule("test", run)).toThrow();
   expect(() => rule("test", { ...run, worktree: "false" })).toThrow();
   expect(() => rule("test", { command: ["true"] })).not.toThrow();
+});
+test("a queued 1.0 job runs in its original workspace after the live rule opts into worktrees", async () => {
+  const id = "before-upgrade";
+  const old = {
+    agent: "codex",
+    cwd: nested,
+    chat: "shared",
+    prompt: "old prompt",
+  };
+  const current = rule(id, { ...old, worktree: true, prompt: "new prompt" });
+  const spec = JSON.stringify({
+    id,
+    webhook: "fixture",
+    enabled: true,
+    run: old,
+    path: file,
+    version: "old-file-hash",
+  });
+  store.db
+    .prepare("INSERT INTO jobs(rule,event_id,spec,data) VALUES(?,?,?,?)")
+    .run(id, "first", spec, "{}");
+  store.put(current, [{ id: "first", data: {} }]);
+  writeFileSync(log, "");
+  await new Runner(store).work();
+  const call = JSON.parse(readFileSync(log, "utf8"));
+  expect(call.cwd).toBe(nested);
+  expect(call.args).not.toContain("--worktree");
+  expect(call.input).toContain("old prompt");
+  expect(
+    store.db.prepare("SELECT spec,status FROM jobs WHERE rule=?").all(id),
+  ).toEqual([{ spec, status: "completed" }]);
 });
 test("git discovers nested and linked checkouts and handles plain or unborn directories", async () => {
   const empty = join(root, "empty");

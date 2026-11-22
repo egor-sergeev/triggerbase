@@ -1,6 +1,12 @@
 import { dirname } from "node:path";
 import { Cron } from "croner";
-import { checkSchema, scan, plan, type Rule } from "./rules.js";
+import {
+  checkSchema,
+  scan,
+  plan,
+  readRuleSnapshot,
+  type Rule,
+} from "./rules.js";
 import { execute } from "./process.js";
 import { dispatch, codexRpc } from "./hosts.js";
 import { Store, type Job } from "./store.js";
@@ -195,9 +201,10 @@ export class Runner {
     for (const row of rows) {
       const current = this.reload().rules.get(row.rule);
       if (!current?.enabled) continue;
-      const rule: Rule = JSON.parse(row.spec);
-      if ("agent" in rule.run) {
-        try {
+      let rule: Rule;
+      try {
+        rule = readRuleSnapshot(row.spec);
+        if ("agent" in rule.run) {
           const target = plan(rule, {
             id: row.event_id,
             data: JSON.parse(row.data),
@@ -215,10 +222,10 @@ export class Runner {
               .get(String(session))
           )
             continue;
-        } catch (e) {
-          this.store.mark(row.id, "failed", String(e));
-          continue;
         }
+      } catch (e) {
+        this.store.mark(row.id, "failed", String(e));
+        continue;
       }
       if (
         !db
@@ -229,7 +236,7 @@ export class Runner {
       )
         continue;
       try {
-        await dispatch(this.store, row);
+        await dispatch(this.store, row, rule);
       } catch (e) {
         const state = db
           .prepare("SELECT status FROM jobs WHERE id=?")

@@ -6,6 +6,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { Store } from "./store.js";
 import { Runner } from "./runner.js";
 import { home, absolute, eventSchema, plan, readRule } from "./rules.js";
+import { currentRuleSchema } from "./rule-migrations.js";
 import pkg from "../package.json" with { type: "json" };
 import { execute } from "./process.js";
 import { mcp } from "./hosts.js";
@@ -136,7 +137,7 @@ async function main() {
         const id = "welcome-" + agent;
         const file = join(home, "rules", id + ".trigger.yaml");
         const yaml =
-          "id: " +
+          `schemaVersion: ${currentRuleSchema}\nid: ` +
           id +
           "\nenabled: true\nwebhook: local-sample\nrun:\n  agent: " +
           agent +

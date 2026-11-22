@@ -174,9 +174,8 @@ export async function mcp(
     proc.stdin.write(JSON.stringify(request) + "\n");
   });
 }
-export async function dispatch(db: Store, job: Job) {
-  const rule: Rule = JSON.parse(job.spec),
-    data = JSON.parse(job.data),
+export async function dispatch(db: Store, job: Job, rule: Rule) {
+  const data = JSON.parse(job.data),
     p = plan(rule, { id: job.event_id, data });
   const result = (text: string) =>
     db.db

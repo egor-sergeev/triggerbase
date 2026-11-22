@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { parse } from "yaml";
 import { z } from "zod";
 import { Cron } from "croner";
+import { currentRuleSchema, migrateRule } from "./rule-migrations.js";
 
 const command = z.array(z.string().min(1)).min(1);
 const chat = z.union([
@@ -23,6 +24,7 @@ const run = z.union([
   z.strictObject({ command, cwd: z.string().optional() }),
 ]);
 const schema = z.strictObject({
+  schemaVersion: z.literal(currentRuleSchema),
   id: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,79}$/),
   enabled: z.boolean().default(true),
   cron: z.string().optional(),
@@ -34,14 +36,18 @@ const schema = z.strictObject({
   check: command.optional(),
   run,
 });
-export type Rule = z.infer<typeof schema> & { path: string; version: string };
+const snapshotSchema = schema.extend({ path: z.string(), version: z.string() });
+export type Rule = z.infer<typeof snapshotSchema>;
+export function readRuleSnapshot(json: string): Rule {
+  return snapshotSchema.parse(migrateRule(JSON.parse(json)));
+}
 export const home =
   process.env.TRIGGERBASE_HOME || join(homedir(), ".config", "triggerbase");
 export const absolute = (p: string, base = process.cwd()) =>
   resolve(base, p.startsWith("~/") ? join(homedir(), p.slice(2)) : p);
 export function readRule(path: string): Rule {
   const raw = readFileSync(path, "utf8");
-  const r = schema.parse(parse(raw));
+  const r = schema.parse(migrateRule(parse(raw)));
   if (Boolean(r.cron) === Boolean(r.webhook))
     throw Error("Choose one source: cron or webhook");
   if (r.cron) {

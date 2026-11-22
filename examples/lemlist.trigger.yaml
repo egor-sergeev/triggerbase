@@ -1,3 +1,4 @@
+schemaVersion: 2
 id: lemlist-replies
 enabled: false
 cron: "*/5 * * * *"
