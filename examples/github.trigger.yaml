@@ -1,0 +1,6 @@
+id: github-pr
+enabled: false
+webhook: pull-requests
+check: [node, ./pr.ts]
+run:
+  command: [node, ./notify-slack.ts]

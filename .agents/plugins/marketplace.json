@@ -1,0 +1,20 @@
+{
+  "name": "triggerbase",
+  "interface": {
+    "displayName": "Triggerbase"
+  },
+  "plugins": [
+    {
+      "name": "triggerbase",
+      "source": {
+        "source": "local",
+        "path": "./plugins/triggerbase"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

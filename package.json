@@ -1,0 +1,46 @@
+{
+  "name": "triggerbase",
+  "version": "0.1.0-alpha.1",
+  "description": "Webhook and cron triggers for local Codex and Claude Code sessions",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24.10.0"
+  },
+  "packageManager": "pnpm@9.10.0",
+  "bin": {
+    "triggerbase": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "examples",
+    "plugins",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/cli.js",
+    "check": "tsc -p relay/tsconfig.json --noEmit",
+    "test": "pnpm build && vitest run",
+    "test:e2e": "pnpm build && playwright test",
+    "dev:relay": "wrangler dev --config relay/wrangler.jsonc",
+    "deploy:relay": "wrangler deploy --config relay/wrangler.jsonc",
+    "bundle": "esbuild src/cli.ts --bundle --platform=node --target=node24 --format=esm --outfile=release/cli.js --banner:js=\"import { createRequire as __createRequire } from 'node:module'; const require=__createRequire(import.meta.url);\""
+  },
+  "dependencies": {
+    "croner": "^11.0.1",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261121.1",
+    "@playwright/test": "^1.65.1",
+    "@types/node": "24",
+    "esbuild": "^0.28.2",
+    "miniflare": "4",
+    "prettier": "^3.10.1",
+    "typescript": "5.9",
+    "vitest": "^5.1.1",
+    "wrangler": "4"
+  }
+}

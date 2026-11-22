@@ -1,0 +1,35 @@
+# Deploy the HTTPS webhook receiver
+
+The TypeScript Worker and its SQLite-backed Durable Objects run in Cloudflare. A separate object stores each GitHub account's devices, endpoints and encrypted inbox. The user-facing process and agent sessions run on macOS. The source tree includes staging and production configurations.
+
+## Provision an environment
+
+1. Use the Cloudflare account intended for this service. Run `pnpm install --frozen-lockfile` and `pnpm exec wrangler whoami`. Choose a workers.dev subdomain or configure a custom domain.
+2. Prepare a GitHub OAuth App per environment. Its homepage is the relay origin and its authorization callback is `https://YOUR-RELAY/auth/callback`. Generate a client secret. The flow needs public account identity.
+3. Set Worker secrets with `pnpm exec wrangler secret put NAME --config relay/wrangler.jsonc`. Set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, and `ENCRYPTION_KEY` (32 random bytes, base64). Paste secrets through Wrangler's input prompt or an approved secret manager. Add `--env production` to every production secret and deployment command.
+4. Deploy staging with `pnpm deploy:relay`. Run the offline delivery and device revocation checks below. Deploy production with `pnpm deploy:relay --env production`. `GET /health` is a liveness check. Pairing and an authenticated signed test delivery verify the configured secrets and storage.
+5. Enable Cloudflare account budget alerts and alert on HTTP 429/5xx, storage usage, sustained queue age and expired events. Keep request bodies, Authorization headers, OAuth codes, cookies and credentials out of logs. Workers Paid starts at $5/month before usage beyond the included limits. [Cloudflare pricing](https://developers.cloudflare.com/workers/platform/pricing/)
+
+## Pair a Mac and register a source
+
+```sh
+triggerbase login https://YOUR-RELAY
+triggerbase hook add pull-requests github
+triggerbase devices
+```
+
+The sign-in opens GitHub in a browser. A one-time code returns to a loopback port. The CLI redeems it with a verifier and stores the device token in Keychain. The hook command returns a public URL and a one-time secret. Enter these in the provider's webhook settings. Avoid saving that command's output in a shared log. The rule's `webhook` value is the source name, here `pull-requests`. Other supported verifier names are `circleback` and `bearer`.
+
+Use `hook remove SOURCE` to retire an endpoint and `devices revoke ID` to revoke an installation. To rotate an endpoint without a delivery gap, register a temporary new source, test it, update the sender and remove the old one. For receiver encryption-key rotation, deploy the old key under `PREVIOUS_ENCRYPTION_KEY` before changing `ENCRYPTION_KEY`. Recreate old endpoint secrets and drain or expire old encrypted events before removing the previous key. Keep old backup keys in protected escrow for the backup retention period.
+
+## Delivery contract and operating limits
+
+- POST a verified JSON payload to the generated endpoint. Status 202 means persisted. Authenticated replay of the same bytes for the same source returns 200 with `duplicate`. A source-specific check can additionally deduplicate semantic events across different serializations.
+- The Mac retrieves the oldest event and writes a local SQLite inbox transaction before acknowledging it. A lost acknowledgment can repeat delivery. Job IDs, script cursors and events are committed locally before dispatch.
+- The body limit is 1 MiB. A source which can exceed it should send a signed reference and fetch the full content locally via the provider's authenticated API. Each account supports 32 sources and 256 unacknowledged events. A full inbox returns 429 rather than acknowledging an unstored event.
+- Pending bodies and deduplication records expire after 30 days. An acknowledgment deletes the body immediately. Keep a provider-side history or redelivery mechanism for longer outages. Each source is delivered to the device that registered it. When replacing a Mac, drain it before moving the source. Deleting and recreating a source binds it to the new device. The journal reports pending and expired deliveries.
+- Use Cloudflare's Durable Object point-in-time recovery procedures on a staging namespace. For a restore, pause senders and consumers, restore the affected account to a selected bookmark, reconcile provider delivery IDs and local job history, then reopen ingress. Test recovery on the target account before production.
+
+## Staging acceptance
+
+Pair two different test accounts and verify each sees only its own inbox. Stop the local runner, deliver a signed test payload twice, then restart. Verify a single completed job in the intended native chat. Revoke the device and verify the next pull fails. Rotate the webhook secret, confirm that the old one fails and confirm a valid new delivery. Verify expiry handling with staging fixtures. Run a backup restore drill and check alerts and quotas before routing real customer data.

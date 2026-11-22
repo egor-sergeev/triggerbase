@@ -1,56 +1,91 @@
-# Triggerbase
+# Triggerbase — webhook and cron triggers for Codex and Claude Code on macOS
 
-Triggerbase должен запускать локальные сессии Codex и Claude Code по внешним событиям. Пользователь описывает правило своему агенту, а результат видит и продолжает в родном приложении. Первая целевая платформа — macOS. Репозиторий пока содержит только требования.
+Run your **local coding agent** when a customer replies, a meeting transcript arrives, a pull request merges, or a scheduled script finds work. Deliver the prompt to a new chat, one persistent chat, or the chat for a particular conversation. A public HTTPS receiver can hold webhooks while your Mac sleeps.
 
-## Что настраивает пользователь
+**Preview release.** The local runner, journal and Cloudflare receiver are included. Codex has completed a live local job. Both hosts passed direct MCP calls against a test server. Claude Desktop session delivery and unattended access to individual SaaS accounts still need live verification. The hosted receiver needs operator provisioning. Local cron works immediately.
 
-Одно правило связывает источник события, условие запуска и действие. Пользователь может описать его так.
+## Install by asking your agent
 
-> Когда в Lemlist приходит ответ, продолжи чат по этой переписке в Codex. Открой репозиторий продаж, прочитай историю контакта и подготовь черновик. Покажи мне текст и дождись подтверждения отправки.
+On macOS with Node.js 24.10+ and the GitHub CLI, paste this into **Codex or Claude Code**:
 
-У правил должен быть документированный машиночитаемый формат. Codex или Claude должен уметь создать, проверить на примере события, изменить и отключить правило по просьбе пользователя. Проверка на примере показывает выбранный репозиторий, чат и итоговое сообщение без запуска агента и без внешних действий.
+> Install Triggerbase from egor-sergeev/triggerbase for the agent I am using. Follow the verified preview installation in its README. Start the local runner, run the installation sample, wait for completion, and open the journal and the resulting chat. Tell me if my current agent account or permissions prevent completion.
 
-| Параметр правила | Что задаёт |
-|---|---|
-| Источник и условие | Входящий вебхук или периодическая программная проверка. Фильтр по типу события, полям данных или результату скрипта. |
-| Исполнитель | Codex или Claude Code, локальный репозиторий и инструкции к задаче. Используется подписка пользователя. Переход на отдельную оплату API требует явного выбора. |
-| Адресат | Новый чат на каждое событие, существующий чат по ID или один чат на объект. В последнем случае правило вычисляет ключ, например ID переписки, и переиспользует созданный чат. |
-| Сообщение | Шаблон с полями события, например текстом ответа, ссылкой, ID контакта или встречи. Входящий текст клиента передаётся как данные. Он не может изменить правило или разрешить отправку. |
-| Результат | Какой артефакт подготовить, где его показать и для какого внешнего действия требуется подтверждение. |
+The following commands install the verified release into your user account. Use the same preview tag for the archive and installation. For development before a release is available, use the source installation below.
 
-## Приём и доставка событий
+```sh
+repo=egor-sergeev/triggerbase
+tag=v0.1.0-alpha.1
+stage=$(mktemp -d)
+gh release download "$tag" --repo "$repo" --pattern triggerbase.tgz --dir "$stage"
+gh attestation verify "$stage/triggerbase.tgz" --repo "$repo" \
+  --signer-workflow "$repo/.github/workflows/release.yml" --source-ref "refs/tags/$tag"
+dest="$HOME/.local/share/triggerbase/$tag"
+mkdir -p "$dest" "$HOME/.local/bin"
+tar -xzf "$stage/triggerbase.tgz" -C "$dest"
+chmod +x "$dest/cli.js"
+ln -sfn "$dest/cli.js" "$HOME/.local/bin/triggerbase"
+export PATH="$HOME/.local/bin:$PATH"
+```
 
-- Один продукт обслуживает все правила. Для вебхуков нужен адрес, доступный отправителю и тогда, когда Mac выключен. Приёмник подтверждает доставку после сохранения события. После восстановления сети локальный исполнитель сам забирает накопившиеся задания.
-- Скрипт проверки может читать API по расписанию и при пробуждении Mac. Пустая очередь, неподходящее событие или отсутствие изменений не запускают модель и не расходуют агентское время. Для источников с историей проверка подбирает пропущенные записи с последней обработанной позиции.
-- Повтор одного события не должен создавать второй чат, черновик или задачу. Два разных ответа одного клиента должны попасть в один чат в порядке обработки. Если после сбоя неизвестно, ушло ли письмо, Triggerbase сначала проверяет его статус у провайдера. Когда проверить статус нельзя, решение о повторе принимает пользователь.
-- В журнале видна связь между событием, версией правила, попыткой запуска, ID чата и результатом. Пользователь различает приём события, постановку сообщения в очередь, фактическое начало хода, завершение, ожидание подтверждения и ошибку. Наличие ID очереди само по себе не подтверждает запуск агента.
-- Приёмник проверяет подлинность вебхука способом, который поддерживает источник. Секреты хранятся отдельно от правил и журналов.
+Keep `~/.local/bin` on your shell PATH. Install the plugin in the host you use:
 
-## Сессии и родные приложения
+```sh
+# Codex
+codex plugin marketplace add "$dest"
+codex plugin add triggerbase@triggerbase
 
-- Пользователь должен найти созданный чат в Codex Desktop или во вкладке Code приложения Claude Desktop. В чате видны входящее задание, результат и продолжение. Чат можно открыть по ссылке или другой штатной команде приложения.
-- Пользователь или правило выбирает существующий чат. Следующее сообщение попадает именно в него и сохраняет контекст. Если агент занят, сообщение ожидает своей очереди. Одновременные события не должны запускать два конкурирующих процесса записи в один чат.
-- В сценариях, требующих Computer Use, агент должен выполнять работу с инструментами и разрешениями соответствующего приложения. Видимость истории после фонового запуска и наличие Computer Use проверяются отдельно. Triggerbase управляет сессиями программно, без имитации клавиатуры, мыши и кликов по интерфейсу.
-- Опционально пользователь может скрыть служебные чаты из основной боковой панели и открыть их из журнала Triggerbase. Автоматическое появление чата в списке и принудительный перевод окна на передний план — отдельные свойства. Предпочтителен режим без перехвата фокуса.
+# Claude Code
+claude plugin install triggerbase --marketplace "$dest"
+```
 
-## Приёмочные сценарии
+Then run:
 
-| Событие | Ожидаемый результат |
-|---|---|
-| Новый ответ в Lemlist или GetSales | Агент читает историю переписки и инструкции репозитория. В чате появляется черновик с адресатом и каналом. После правок пользователя отправляется только одобренная версия. Без подтверждения сообщение остаётся черновиком. |
-| У открытой задачи в Attio наступил срок | Детерминированная проверка находит задачу по дате в часовом поясе пользователя. Агент по карточке клиента выбирает email, LinkedIn, Slack или Teams и готовит сообщение. Если канал не указан, агент запрашивает его. После сна Mac пропущенная задача обрабатывается один раз. |
-| Circleback закончил транскрибацию | В отдельном чате по встрече агент обрабатывает транскрипт, сохраняет результат в указанном репозитории и создаёт нужные задачи в Attio. Повторная доставка того же события не создаёт дубликаты. |
-| GitHub PR открыт или смержен | Для каждого из двух событий в заданном Slack-канале появляется одно сообщение со ссылкой на PR. Закрытие PR без слияния не считается слиянием. Для фиксированного текста правило может обойтись без вызова модели. |
+```sh
+triggerbase service install
+triggerbase sample codex              # or: triggerbase sample claude
+triggerbase jobs
+triggerbase ui
+```
 
-## Что уже проверено
+The sample requests one short reply in a shared chat. A repeated sample uses the same event ID. Open its job to see the session and delivery history. Follow any host prompt to reload your plugin. Agent jobs use the locally signed-in subscription account. A CLI configured for API-key billing fails the preflight.
 
-Эксперименты проведены 21 ноября 2026 года на одном Mac. Для Codex использовался CLI 0.170.0, для Claude Code — 2.1.329. Это наблюдения для проектирования и повторяемые проверки будущего продукта.
+## Configure a trigger
 
-| Эксперимент | Результат |
-|---|---|
-| Codex, новая сессия через `codex exec --json`, затем `codex exec resume <id>` | Агент вспомнил контрольное слово, Desktop прочитал оба хода по ID. Сразу в боковой панели чата не было. После команды macOS `open 'codex://threads/<id>'` пользователь увидел его в панели. |
-| Codex, сообщение в существующий чат Desktop | На чате, которым владел Desktop, `exec resume` вернул `already has an active writer`. Через `codex queue --thread <id> --message … --resume` сообщения дошли в два открытых чата. Один получил новый ход в состоянии ожидания. Предупреждение CLI об отсутствии daemon не помешало доставке. |
-| Codex, новая сессия через App Server | `thread/start` и `turn/start` создали сессию, которую затем продолжил CLI. Программный список приложения показал чат раньше, чем его увидел пользователь. Позже чат появился в панели. Причина обновления панели не установлена. |
-| Claude Code, создание и продолжение | `claude -p` и `claude -p --resume <id>` сохранили контекст. Попытка `claude --desktop --resume <id>` остановилась из-за настроенного `apiKeyHelper`. CLI потребовал вход через аккаунт Claude. Видимость в Claude Desktop, продолжение открытого Desktop-чата и запуск через подписку остаются критериями приёмки. |
+One file defines one rule. Save this example as `~/.config/triggerbase/rules/morning.trigger.yaml` and set `cwd` to your project. The runner discovers changes automatically.
 
-Перед выбором способа запуска нужно отдельно подтвердить штатный Computer Use в обоих приложениях и проверить, можно ли показать новый чат без перехвата фокуса. Для сквозной проверки вебхук отправляется при выключенном Mac. После включения одно сохранённое событие должно привести к одному выполненному заданию в нужном чате.
+```yaml
+id: morning-review
+enabled: true
+cron: "0 9 * * 1-5"
+run:
+  agent: codex
+  cwd: ~/projects/my-project
+  chat: shared
+  prompt: "Review the open work in this project for {{time}}."
+```
+
+Use `webhook: circleback` in place of `cron` to subscribe to a receiver source. An optional `check` runs a script in **any language** before an agent starts. It reads JSON on stdin and emits events on stdout. An empty list uses zero model turns. The script can invoke an authorized MCP tool through the selected host.
+
+| Example | Source | Result |
+|---|---|---|
+| [Lemlist replies](examples/lemlist.trigger.yaml) | Poll authenticated activities | Continue the sales chat for a conversation |
+| [GetSales replies](examples/getsales.trigger.yaml) | Poll LinkedIn messages | Draft a reply for the same conversation |
+| [Attio deadlines](examples/attio.trigger.yaml) | Cron and a read-only MCP call | Find due tasks after sleep and draft follow-ups |
+| [Circleback meeting notes](examples/circleback.trigger.yaml) | Signed transcript webhook | Deliver notes and action items to Claude |
+| [GitHub PRs → Slack](examples/github.trigger.yaml) | Signed pull-request webhook | Post opened and merged PRs without an agent |
+
+Examples ship disabled. Copy an example and its scripts together, set the working directory and connection, and test the mapping on your account before enabling it. For a rule in a repository, register its directory with `triggerbase paths add /absolute/path`. A rule may also live outside any repository. To pause one, set `enabled: false`.
+
+## Frequently asked questions
+
+**What happens while my Mac is offline?** The receiver acknowledges a webhook after durable storage. Your Mac pulls it over HTTPS after reconnecting. The local scheduler runs one catch-up check after missed cron ticks. Checks can use a cursor to retrieve the entire missed interval.
+
+**Can a script use my existing MCP authorization?** Use `triggerbase mcp call codex SERVER TOOL` or `triggerbase mcp call claude SERVER TOOL`, with JSON arguments on stdin. The host checks its own connection and permissions. A tool requiring interactive consent will report an error in unattended use.
+
+**Where do I review and send a draft?** Continue in your agent's chat. Your prompt and native tool permissions determine which actions the agent takes.
+
+**What does it cost?** Local scheduling has no Triggerbase service charge. Agent usage follows your host account. The optional relay can use Cloudflare Workers Free within quotas or Workers Paid. [Deployment and limits](docs/relay.md)
+
+**How do I debug a missing job?** Open Rules in the journal to inspect the file path, parse errors and last successful check. Open Jobs for the event, rule version, attempt, rendered task and session. A delivered message may still be waiting for its host to start.
+
+[Rule and command reference](docs/rules.md) · [Security and private reporting](SECURITY.md) · [Development and live test matrix](docs/development.md) · [Apache-2.0 license](LICENSE)

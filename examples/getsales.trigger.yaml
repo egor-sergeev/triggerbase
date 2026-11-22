@@ -1,0 +1,9 @@
+id: getsales-replies
+enabled: false
+cron: "*/5 * * * *"
+check: [node, ./getsales.ts, direction, inbound]
+run:
+  agent: codex
+  cwd: ~/projects/sales
+  chat: { key: "{{conversation}}" }
+  prompt: Read GetSales conversation {{conversation}} and incoming message {{message_id}}. Draft a reply.

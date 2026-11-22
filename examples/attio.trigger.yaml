@@ -1,0 +1,11 @@
+id: attio-followups
+enabled: false
+cron: "*/15 * * * *"
+check: [node, ./attio.ts]
+run:
+  agent: codex
+  cwd: ~/projects/sales
+  chat: shared
+  prompt: |
+    Read Attio task {{task_id}} and the linked customer records {{records}}.
+    Draft a follow-up for the customer's preferred channel. Ask me if it is missing.

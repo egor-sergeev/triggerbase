@@ -1,0 +1,9 @@
+{
+  "name": "triggerbase",
+  "version": "0.1.0-alpha.1",
+  "description": "Run local agent jobs from webhooks and cron. Manage rules and open the job journal.",
+  "author": {
+    "name": "Triggerbase contributors"
+  },
+  "license": "Apache-2.0"
+}

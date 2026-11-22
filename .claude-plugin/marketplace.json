@@ -1,0 +1,13 @@
+{
+  "name": "triggerbase",
+  "owner": {
+    "name": "Triggerbase contributors"
+  },
+  "plugins": [
+    {
+      "name": "triggerbase",
+      "source": "./plugins/triggerbase",
+      "description": "Run local agent jobs from webhooks and cron. Manage rules and open the job journal."
+    }
+  ]
+}
