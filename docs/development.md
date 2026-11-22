@@ -20,6 +20,8 @@ Vitest exercises real subprocesses, temporary SQLite stores, dynamically edited 
 
 Playwright starts the compiled daemon with an empty state directory. It checks journal authentication, empty jobs, a completed cron command, job history, a broken rule and narrow-screen layout. Use `TRIGGERBASE_CHROME=chrome pnpm test:e2e` for installed Google Chrome. Images go to `test-results/`.
 
+The native service smoke test runs the bundled artifact in a disposable state directory with its own LaunchAgent label. Run `pnpm bundle && node scripts/service-smoke.ts` to verify first install, repeat install, upgrade and removal.
+
 ## Native acceptance on macOS
 
 ```sh

@@ -1,11 +1,23 @@
-import { writeFileSync, mkdirSync, unlinkSync, existsSync } from "node:fs";
+import {
+  readFileSync,
+  renameSync,
+  writeFileSync,
+  mkdirSync,
+  unlinkSync,
+  existsSync,
+} from "node:fs";
 import { join, dirname } from "node:path";
+import { createHash } from "node:crypto";
+import { setTimeout as sleep } from "node:timers/promises";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { execute } from "./process.js";
 import { home } from "./rules.js";
 
-const label = "dev.triggerbase.runner",
+const suffix = process.env.TRIGGERBASE_HOME
+  ? "." + createHash("sha256").update(home).digest("hex").slice(0, 12)
+  : "";
+const label = "dev.triggerbase.runner" + suffix,
   dir = join(homedir(), "Library", "LaunchAgents"),
   plist = join(dir, label + ".plist");
 const xml = (s: string) =>
@@ -40,23 +52,43 @@ export async function service(cmd: string) {
     "/usr/local/bin",
     join(homedir(), ".local/bin"),
   ].join(":");
-  writeFileSync(
-    plist,
+  const contents =
     '<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>Label</key><string>' +
-      label +
-      "</string><key>ProgramArguments</key><array>" +
-      [process.execPath, cli, "start"]
-        .map((s) => "<string>" + xml(s) + "</string>")
-        .join("") +
-      "</array><key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ThrottleInterval</key><integer>10</integer><key>EnvironmentVariables</key><dict><key>PATH</key><string>" +
-      xml(path) +
-      "</string><key>TRIGGERBASE_HOME</key><string>" +
-      xml(home) +
-      "</string></dict></dict></plist>",
-    { mode: 0o600 },
-  );
+    label +
+    "</string><key>ProgramArguments</key><array>" +
+    [process.execPath, cli, "start"]
+      .map((s) => "<string>" + xml(s) + "</string>")
+      .join("") +
+    "</array><key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ThrottleInterval</key><integer>10</integer><key>EnvironmentVariables</key><dict><key>PATH</key><string>" +
+    xml(path) +
+    "</string><key>TRIGGERBASE_HOME</key><string>" +
+    xml(home) +
+    "</string></dict></dict></plist>";
+  if (existsSync(plist) && readFileSync(plist, "utf8") === contents) {
+    const loaded = await execute(
+      ["launchctl", "print", domain + "/" + label],
+      home,
+      "",
+    ).then(
+      () => true,
+      () => false,
+    );
+    if (loaded) return;
+  }
+  const temp = plist + "." + process.pid;
+  writeFileSync(temp, contents, { mode: 0o600 });
+  renameSync(temp, plist);
   await execute(["launchctl", "bootout", domain + "/" + label], home, "").catch(
     () => {},
   );
-  await execute(["launchctl", "bootstrap", domain, plist], home, "");
+  // launchd may acknowledge bootout before it releases the old registration.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await execute(["launchctl", "bootstrap", domain, plist], home, "");
+      return;
+    } catch (e) {
+      if (attempt >= 8 || !String(e).includes("Bootstrap failed: 5")) throw e;
+      await sleep(250 * (attempt + 1));
+    }
+  }
 }
