@@ -20,7 +20,7 @@ Vitest exercises real subprocesses, temporary SQLite stores, dynamically edited 
 
 Playwright starts the compiled daemon with an empty state directory. It checks journal authentication, empty jobs, a completed cron command, job history, a broken rule and narrow-screen layout. Use `TRIGGERBASE_CHROME=chrome pnpm test:e2e` for installed Google Chrome. Images go to `test-results/`.
 
-The native service smoke test runs the bundled artifact in a disposable state directory with its own LaunchAgent label. Run `pnpm bundle && node scripts/service-smoke.ts` to verify first install, repeat install, upgrade and removal.
+The native service smoke test runs the bundled artifact in a disposable state directory with its own LaunchAgent label. Run `pnpm bundle && node scripts/service-smoke.ts` to verify installation and upgrades, bootstrap from the login plist, cron catch-up, suspension and resumption of the runner, and restart after a forced process exit. The test leaves the Mac awake and removes its temporary LaunchAgent.
 
 ## Native acceptance on macOS
 
@@ -40,6 +40,7 @@ MCP checks create disposable host profiles and use a local test tool. The sessio
 | Local Codex execution | On macOS 15.7.4, the installed alpha delivered its sample through launchd and Codex Desktop read the completed reply. A second job queued during an active turn reused the same chat and recalled the first job's marker. |
 | Computer Use from a launchd Codex job | The native tool was present. Finder, TextEdit and QuickTime window reads returned `cgWindowNotFound` on the release Mac. Window access requires another test in an active GUI session. |
 | Verified release installation | Downloaded the published archive, verified its GitHub attestation and SHA-256 checksum, and installed its packaged plugin in both host CLIs. |
+| Wake and server notifications | On staging, an authenticated WebSocket signaled a synthetic webhook and the Mac finished the command in about two seconds. A second event stayed queued while the runner was suspended and completed about three seconds after resumption. A separate macOS LaunchAgent test loaded the login plist, caught up an enabled cron once, skipped a disabled rule and restarted the killed process. |
 | Cloudflare staging | A Mac paired through GitHub. The runner received one signed event after an offline replay and completed one native Codex job. Rotating the webhook secret rejected old signatures. Revoking the device rejected its next poll. A point-in-time recovery drill in a disposable Cloudflare SQLite namespace restored a deleted synthetic event and its original contents. |
 | Claude account selection | The runner rejects the configured API-key helper before executing a model turn. Live subscription and Desktop delivery require a signed-in subscription test |
 | Vendor accounts and offline production delivery | A signed production webhook completed a native Codex job and the relay acknowledged the queue drain. Private SaaS destinations use fixtures in CI |

@@ -183,6 +183,18 @@ export class Account {
   one(q: string, ...args: any[]) {
     return this.sql.exec(q, ...args).toArray()[0];
   }
+  notify(device: string) {
+    for (const socket of this.ctx.getWebSockets(device)) {
+      try {
+        socket.send("pending");
+      } catch {
+        // A disconnected device reads the durable queue when it reconnects.
+      }
+    }
+  }
+  webSocketMessage(socket: WebSocket) {
+    socket.close(1008, "Notifications are server-only");
+  }
   allow(k: string, n: number) {
     const min = Math.floor(Date.now() / 60000);
     this.sql.exec(
@@ -417,6 +429,8 @@ export class Account {
           now,
         );
       });
+      const consumer = this.one("SELECT device FROM consumers WHERE source=?", hook.source);
+      if (consumer) this.notify(String(consumer.device));
       if (pending === 0) this.env.QUEUE_METRICS?.writeDataPoint({ doubles: [0, 0] });
       return json({ id }, 202);
     }
@@ -424,12 +438,21 @@ export class Account {
       hash = await digest(token);
     if (!this.one("SELECT hash FROM devices WHERE hash=?", hash))
       return deny(401);
+    if (u.pathname === "/v1/notify" && req.method === "GET") {
+      if (req.headers.get("Upgrade")?.toLowerCase() !== "websocket") return deny(426);
+      if (this.ctx.getWebSockets(hash).length >= 4) return deny(429);
+      const [client, server] = Object.values(new WebSocketPair());
+      this.ctx.acceptWebSocket(server, [hash]);
+      return new Response(null, { status: 101, webSocket: client });
+    }
     if (u.pathname === "/v1/devices" && req.method === "GET")
       return json(
         this.sql.exec("SELECT hash AS id,created FROM devices").toArray(),
       );
     if (p[2] === "devices" && req.method === "DELETE") {
+      if (!/^[a-f0-9]{64}$/.test(p[3] || "")) return deny(400);
       this.sql.exec("DELETE FROM devices WHERE hash=?", p[3]);
+      for (const socket of this.ctx.getWebSockets(p[3])) socket.close(1008, "Device revoked");
       return json({ ok: true });
     }
     if (u.pathname === "/v1/hooks" && req.method === "POST") {
@@ -465,6 +488,8 @@ export class Account {
           hash,
         );
       });
+      if (this.one("SELECT id FROM events WHERE source=? LIMIT 1", source))
+        this.notify(hash);
       return json(
         { url: u.origin + "/h/" + token.split(".")[0] + "/" + id, secret },
         201,

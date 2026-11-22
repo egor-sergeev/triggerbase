@@ -8,8 +8,9 @@ import { Runner } from "./runner.js";
 import { home, absolute, eventSchema, plan, readRule } from "./rules.js";
 import { execute } from "./process.js";
 import { mcp } from "./hosts.js";
-import { api, login, pull } from "./cloud.js";
+import { api, login } from "./cloud.js";
 import { service } from "./service.js";
+import { startRelayFeed } from "./relay-feed.js";
 import { startUI } from "./ui.js";
 
 const help =
@@ -30,27 +31,17 @@ async function daemon(store: Store) {
   runner.recover();
   const { server, url } = await startUI(runner);
   writeFileSync(join(home, "journal.url"), url, { mode: 0o600 });
+  const stopFeed = startRelayFeed(store);
   const stop = () => {
+    stopFeed();
     server.close();
     lock.close();
     process.exit(0);
   };
   process.on("SIGTERM", stop);
   process.on("SIGINT", stop);
-  let working = false,
-    pulling = false,
-    lastPull = 0;
+  let working = false;
   for (;;) {
-    if (Date.now() - lastPull > 15000 && !pulling) {
-      lastPull = Date.now();
-      pulling = true;
-      void pull(store)
-        .then(() => store.set("relayError", null))
-        .catch((e) => store.set("relayError", { error: String(e) }))
-        .finally(() => {
-          pulling = false;
-        });
-    }
     try {
       await runner.tick();
       if (!working) {

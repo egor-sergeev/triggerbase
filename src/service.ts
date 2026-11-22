@@ -1,5 +1,6 @@
 import {
   readFileSync,
+  realpathSync,
   renameSync,
   writeFileSync,
   mkdirSync,
@@ -45,8 +46,14 @@ export async function service(cmd: string) {
   if (cmd !== "install") throw Error("Unknown service action");
   mkdirSync(dir, { recursive: true });
   mkdirSync(home, { recursive: true, mode: 0o700 });
+  // Homebrew replaces versioned Cellar paths during Node upgrades.
+  const node =
+    ["/opt/homebrew/bin/node", "/usr/local/bin/node"].find(
+      (candidate) =>
+        existsSync(candidate) && realpathSync(candidate) === process.execPath,
+    ) || process.execPath;
   const path = [
-    dirname(process.execPath),
+    dirname(node),
     process.env.PATH || "",
     "/opt/homebrew/bin",
     "/usr/local/bin",
@@ -56,7 +63,7 @@ export async function service(cmd: string) {
     '<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>Label</key><string>' +
     label +
     "</string><key>ProgramArguments</key><array>" +
-    [process.execPath, cli, "start"]
+    [node, cli, "start"]
       .map((s) => "<string>" + xml(s) + "</string>")
       .join("") +
     "</array><key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ThrottleInterval</key><integer>10</integer><key>EnvironmentVariables</key><dict><key>PATH</key><string>" +

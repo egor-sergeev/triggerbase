@@ -1,3 +1,4 @@
+import WebSocket from "ws";
 import { createServer } from "node:http";
 import { randomBytes, createHash } from "node:crypto";
 import { Store } from "./store.js";
@@ -80,21 +81,17 @@ export async function login(store: Store, origin: string) {
         token +
         "\n",
     );
-    store.set("relay", relay);
+    store.transaction(() => {
+      store.set("relay", relay);
+      store.set("relayPairing", randomBytes(8).toString("hex"));
+    });
   } finally {
     server.close();
   }
 }
-export async function api(
-  store: Store,
-  path: string,
-  method = "GET",
-  body?: unknown,
-) {
-  const relay = store.get("relay", "");
-  if (!relay) throw Error("Pair a relay with triggerbase login <origin>");
+async function deviceToken(relay: string) {
   const account = createHash("sha256").update(validate(relay)).digest("hex");
-  const token = (
+  return (
     await execute(
       [
         "security",
@@ -109,6 +106,38 @@ export async function api(
       "",
     )
   ).stdout.trim();
+}
+
+export async function openSignalSocket(relay: string) {
+  const token = await deviceToken(relay);
+  const url = new URL("/v1/notify", relay);
+  url.protocol = "wss:";
+  return new WebSocket(url, {
+    headers: { authorization: "Bearer " + token },
+    handshakeTimeout: 10_000,
+    perMessageDeflate: false,
+    maxPayload: 64,
+  });
+}
+
+export async function api(
+  store: Store,
+  path: string,
+  method = "GET",
+  body?: unknown,
+) {
+  const relay = store.get("relay", "");
+  if (!relay) throw Error("Pair a relay with triggerbase login <origin>");
+  return request(relay, await deviceToken(relay), path, method, body);
+}
+
+async function request(
+  relay: string,
+  token: string,
+  path: string,
+  method = "GET",
+  body?: unknown,
+) {
   const r = await fetch(relay + path, {
     method,
     redirect: "error",
@@ -128,9 +157,17 @@ export async function api(
   return r.json() as Promise<any>;
 }
 export async function pull(store: Store) {
-  if (!store.get("relay", "")) return;
-  store.set("relayStatus", await api(store, "/v1/status"));
-  await drain(store, (path, method) => api(store, path, method));
+  const relay = store.get("relay", "");
+  if (!relay) return false;
+  const token = await deviceToken(relay);
+  const get = (path: string, method?: string) =>
+    request(relay, token, path, method);
+  const status = await get("/v1/status");
+  store.set("relayStatus", status);
+  if (!status.pending) return false;
+  const full = await drain(store, get);
+  if (!full) store.set("relayStatus", await get("/v1/status"));
+  return full;
 }
 export async function drain(
   store: Store,
@@ -138,10 +175,11 @@ export async function drain(
 ) {
   for (let count = 0; count < 16; count++) {
     const event = await request("/v1/events");
-    if (!event) break;
+    if (!event) return false;
     store.db
       .prepare("INSERT OR IGNORE INTO inbox(id,source,body) VALUES(?,?,?)")
       .run(event.id, event.source, JSON.stringify(event.body));
     await request("/v1/events/" + encodeURIComponent(event.id), "DELETE");
   }
+  return true;
 }

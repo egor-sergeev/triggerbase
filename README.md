@@ -14,7 +14,7 @@ The following commands install the verified release into your user account. Use 
 
 ```sh
 repo=egor-sergeev/triggerbase
-tag=v0.1.0-alpha.1
+tag=v0.1.0-alpha.2
 stage=$(mktemp -d)
 gh release download "$tag" --repo "$repo" --pattern triggerbase.tgz --dir "$stage"
 gh attestation verify "$stage/triggerbase.tgz" --repo "$repo" \
@@ -89,7 +89,9 @@ Examples ship disabled. Copy an example and its scripts together, set the workin
 
 ## Frequently asked questions
 
-**What happens while my Mac is offline?** The receiver acknowledges a webhook after durable storage. Your Mac pulls it over HTTPS after reconnecting. The local scheduler runs one catch-up check after missed cron ticks. Checks can use a cursor to retrieve the entire missed interval.
+**Does Triggerbase start after a reboot?** Run `triggerbase service install` once. The macOS LaunchAgent starts the runner when you log in and restarts it if it exits. After an upgrade, run the same command from the new installation.
+
+**What happens while my Mac sleeps?** The receiver queues verified webhooks for up to 30 days. While the Mac is online, the receiver signals new events over an outbound WebSocket. The runner checks the queue at startup, after detecting wake and on reconnect. If the socket is unavailable, it polls once a minute. After missed cron ticks, each enabled rule runs one catch-up check. A check can use its saved cursor to retrieve the missed interval.
 
 **Can a script use my existing MCP authorization?** Use `triggerbase mcp call codex SERVER TOOL` or `triggerbase mcp call claude SERVER TOOL`, with JSON arguments on stdin. The host checks its own connection and permissions. A tool requiring interactive consent will report an error in unattended use.
 

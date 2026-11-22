@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import { Miniflare } from "miniflare";
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { createHmac, createHash, randomBytes } from "node:crypto";
@@ -201,6 +201,72 @@ test("offline receiver → durable local inbox → interrupted ACK → restart �
   } finally {
     store.close();
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("server wakes only the subscribed device after persistence and disconnects it on revocation", async () => {
+  owner = "20";
+  const ownerToken = await pair();
+  const bystander = await pair();
+  const open = (token: string) =>
+    mf.dispatchFetch(app + "/v1/notify", {
+      headers: { upgrade: "websocket", authorization: "Bearer " + token },
+    });
+  expect((await open("invalid")).status).toBe(401);
+  const watch = async (token: string) => {
+    const response = await open(token);
+    expect(response.status).toBe(101);
+    const ws = response.webSocket!;
+    ws.accept();
+    return ws;
+  };
+  const ws = await watch(ownerToken),
+    other = await watch(bystander);
+  const messages: unknown[] = [],
+    otherMessages: unknown[] = [];
+  ws.addEventListener("message", (event) => messages.push(event.data));
+  other.addEventListener("message", (event) => otherMessages.push(event.data));
+  const headers = { authorization: "Bearer " + ownerToken };
+  try {
+    const hook = await mf.dispatchFetch(app + "/v1/hooks", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ source: "test", kind: "bearer" }),
+    });
+    const { url, secret } = (await hook.json()) as {
+      url: string;
+      secret: string;
+    };
+    const send = () =>
+      mf.dispatchFetch(url, {
+        method: "POST",
+        headers: { authorization: "Bearer " + secret },
+        body: '{"n":1}',
+      });
+    expect((await send()).status).toBe(202);
+    await vi.waitFor(() => expect(messages).toEqual(["pending"]));
+    expect(
+      await (await mf.dispatchFetch(app + "/v1/events", { headers })).json(),
+    ).toMatchObject({ body: { n: 1 } });
+    expect((await send()).status).toBe(200);
+    const closed = new Promise<number>((ok) =>
+      ws.addEventListener("close", (event) => ok(event.code)),
+    );
+    const id = createHash("sha256").update(ownerToken).digest("hex");
+    expect(
+      (
+        await mf.dispatchFetch(app + "/v1/devices/" + id, {
+          method: "DELETE",
+          headers,
+        })
+      ).ok,
+    ).toBe(true);
+    expect(await closed).toBe(1008);
+    expect((await open(ownerToken)).status).toBe(401);
+    expect(messages).toEqual(["pending"]);
+    expect(otherMessages).toEqual([]);
+  } finally {
+    other.close();
   }
 });
 
